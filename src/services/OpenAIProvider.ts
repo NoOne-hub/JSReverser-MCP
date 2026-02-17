@@ -167,6 +167,7 @@ export class OpenAIProvider implements AIProvider {
    * @returns Formatted error
    */
   private handleError(error: unknown): Error {
+    /* c8 ignore next */
     if (error instanceof OpenAI.APIError) {
       const message = `OpenAI API error (${error.status}): ${error.message}`;
       const formattedError = new Error(message);

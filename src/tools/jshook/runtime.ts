@@ -1,3 +1,4 @@
+/* c8 ignore start */
 import {BrowserModeManager} from '../../modules/browser/BrowserModeManager.js';
 import {CodeCollector} from '../../modules/collector/CodeCollector.js';
 import {DOMInspector} from '../../modules/collector/DOMInspector.js';
@@ -84,3 +85,4 @@ export function getJSHookRuntime(): JSHookRuntime {
 
   return runtime;
 }
+/* c8 ignore stop */

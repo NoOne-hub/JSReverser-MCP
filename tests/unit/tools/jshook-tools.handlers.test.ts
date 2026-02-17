@@ -343,6 +343,7 @@ describe('jshook tools handlers', () => {
       await collectCode.handler({ params: { url: 'https://example.com' } } as any, res as any, {} as any);
       await collectCode.handler({ params: { url: 'https://example.com', returnMode: 'summary' } } as any, res as any, {} as any);
       await collectCode.handler({ params: { url: 'https://example.com', returnMode: 'pattern', pattern: 'b' } } as any, res as any, {} as any);
+      await collectCode.handler({ params: { url: 'https://example.com', returnMode: 'pattern' } } as any, res as any, {} as any);
       await collectCode.handler({ params: { url: 'https://example.com', returnMode: 'top-priority' } } as any, res as any, {} as any);
       await searchInScripts.handler({ params: { pattern: 'abc', limit: 1 } } as any, res as any, {} as any);
       await collectionDiff.handler({
@@ -359,6 +360,13 @@ describe('jshook tools handlers', () => {
             { url: 'same.js', size: 2, type: 'external' },
           ],
           includeUnchanged: true,
+        },
+      } as any, res as any, {} as any);
+      await collectionDiff.handler({
+        params: {
+          previous: [{ url: 'same.js', size: 2, type: 'external' }],
+          current: [{ url: 'same.js', size: 2, type: 'external' }],
+          includeUnchanged: false,
         },
       } as any, res as any, {} as any);
 
