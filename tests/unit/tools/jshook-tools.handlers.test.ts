@@ -173,7 +173,7 @@ describe('jshook tools handlers', () => {
         {
           id: 3,
           target: 'fetch',
-          url: 'https://api.example.com/sign/67890?nonce=2',
+          url: 'https://api.example.com/sign/67890?nonce=2&token=def',
           method: 'POST',
           body: '{"token":"next"}',
           status: 403,

@@ -151,4 +151,62 @@ exit 2
     provider.cliAvailable = undefined;
     assert.strictEqual(provider.checkCLIAvailable(), false);
   });
+
+  it('covers executeCLI timeout callback no-op when already settled', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gemini-cli-timeout-'));
+    tempDirs.push(dir);
+    const cli = makeCliScript(
+      dir,
+      'gemini-timeout.sh',
+      `
+if [ "$1" = "--version" ]; then
+  exit 0
+fi
+echo "DONE"
+exit 0
+`,
+    );
+    const provider = new GeminiProvider({ cliPath: cli, useAPI: false }) as any;
+
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    let timeoutCallback: (() => void) | undefined;
+    globalThis.setTimeout = ((cb: (...args: any[]) => void, _ms?: number) => {
+      timeoutCallback = () => cb();
+      return { __timeout: true } as any;
+    }) as any;
+    globalThis.clearTimeout = (() => {}) as any;
+
+    try {
+      const out = await provider.executeCLI('prompt');
+      assert.strictEqual(out, 'DONE');
+      assert.ok(timeoutCallback);
+      timeoutCallback?.();
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+    }
+  });
+
+  it('covers executeCLI timeout rejection path', async () => {
+    const provider = new GeminiProvider({ cliPath: '/bin/sh', useAPI: false }) as any;
+
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    globalThis.setTimeout = ((cb: (...args: any[]) => void, _ms?: number) => {
+      cb();
+      return { __timeout: true } as any;
+    }) as any;
+    globalThis.clearTimeout = (() => {}) as any;
+
+    try {
+      await assert.rejects(
+        async () => provider.executeCLI('while true; do :; done'),
+        /timed out after 60 seconds/,
+      );
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+    }
+  });
 });

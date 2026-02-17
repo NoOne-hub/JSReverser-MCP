@@ -130,4 +130,35 @@ describe('AnthropicProvider (mocked)', () => {
       /Unknown error: 12345/,
     );
   });
+
+  it('covers chat options mapping and file path without extension branch', async () => {
+    let payload: any = null;
+    const provider = new AnthropicProvider({ apiKey: 'sk-ant-test-key' }) as any;
+    provider.client = {
+      messages: {
+        create: async (input: any) => {
+          payload = input;
+          return {
+            content: [{ type: 'text', text: '' }],
+            usage: { input_tokens: 2, output_tokens: 3 },
+          };
+        },
+      },
+    };
+
+    await provider.chat([{ role: 'user', content: 'x' }], {
+      model: 'claude-test',
+      temperature: 0.1,
+      maxTokens: 12,
+    });
+    assert.strictEqual(payload.model, 'claude-test');
+    assert.strictEqual(payload.temperature, 0.1);
+    assert.strictEqual(payload.max_tokens, 12);
+
+    const tempPath = join(tmpdir(), `anthropic-provider-test-${Date.now()}`);
+    writeFileSync(tempPath, Buffer.from([0x01]));
+    const result = await provider.analyzeImage(tempPath, 'prompt', true);
+    rmSync(tempPath, { force: true });
+    assert.strictEqual(result, '');
+  });
 });

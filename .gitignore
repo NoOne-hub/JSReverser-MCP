@@ -144,5 +144,8 @@ dist
 build/
 
 log.txt
+test-output.txt
+tests/.tmp/
+js-reverse-mcp-main/
 
 .DS_Store

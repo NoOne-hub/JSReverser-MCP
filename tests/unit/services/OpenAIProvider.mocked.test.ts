@@ -164,4 +164,47 @@ describe('OpenAIProvider (mocked)', () => {
       /No response from OpenAI/,
     );
   });
+
+  it('covers empty content and no-usage response branches', async () => {
+    let payload: any = null;
+    const provider = new OpenAIProvider({ apiKey: 'sk-test-key' }) as any;
+    provider.client = {
+      chat: {
+        completions: {
+          create: async (input: any) => {
+            payload = input;
+            return { choices: [{ message: { content: null } }] };
+          },
+        },
+      },
+    };
+
+    const out = await provider.chat([{ role: 'assistant', content: 'x' }], {
+      model: 'gpt-test',
+      temperature: 0.3,
+      maxTokens: 99,
+    });
+    assert.strictEqual(out.content, '');
+    assert.strictEqual(out.usage, undefined);
+    assert.strictEqual(payload.model, 'gpt-test');
+    assert.strictEqual(payload.temperature, 0.3);
+    assert.strictEqual(payload.max_tokens, 99);
+  });
+
+  it('covers analyzeImage file path without extension branch', async () => {
+    const provider = new OpenAIProvider({ apiKey: 'sk-test-key' }) as any;
+    provider.client = {
+      chat: {
+        completions: {
+          create: async () => ({ choices: [{ message: { content: null } }] }),
+        },
+      },
+    };
+
+    const tempPath = join(tmpdir(), `openai-provider-test-${Date.now()}`);
+    writeFileSync(tempPath, Buffer.from([0x00]));
+    const out = await provider.analyzeImage(tempPath, 'p', true);
+    rmSync(tempPath, { force: true });
+    assert.strictEqual(out, '');
+  });
 });

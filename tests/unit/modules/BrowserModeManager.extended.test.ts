@@ -294,7 +294,11 @@ describe('BrowserModeManager extended', () => {
     } finally {
       Object.defineProperty(process, 'platform', { value: originalPlatform });
       if (fs.existsSync(fakeWinPath)) {
-        fs.unlinkSync(fakeWinPath);
+        try {
+          fs.unlinkSync(fakeWinPath);
+        } catch {
+          // Ignore cleanup errors on environments where this path is protected.
+        }
       }
       (BrowserModeManager as any).detectedBrowsersCache = null;
     }
