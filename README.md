@@ -22,6 +22,7 @@
 - 网络与请求链路：`list_network_requests`、`get_network_request`、`get_request_initiator`、`break_on_xhr`
 - 一体化逆向工作流：`analyze_target`、`collect_code`、`understand_code`、`deobfuscate_code`、`risk_panel`
 - 页面自动化与 DOM：`navigate_page`、`query_dom`、`click_element`、`type_text`、`take_screenshot`
+- 登录态管理：`save_session_state`、`restore_session_state`、`list_session_states`、`dump_session_state`、`load_session_state`
 - 反检测能力：`inject_stealth`、`list_stealth_presets`、`set_user_agent`
 
 完整参数说明见 `docs/tool-reference.md`。
@@ -228,6 +229,14 @@ DEBUG=mcp:*
 1. `collect_code` 收集高优先级脚本
 2. `risk_panel` 汇总安全风险与密码学风险
 3. `export_session_report` 导出分析报告（JSON/Markdown）
+
+### 工作流 D：登录态复用（登录一次，多次分析）
+
+1. 手动登录目标网站后执行 `save_session_state`（建议指定 `sessionId`）
+2. 用 `dump_session_state` 导出到文件（可放在你自己的安全目录）
+3. 下次会话先 `load_session_state`（从文件或 JSON）
+4. 执行 `restore_session_state` 回灌 cookies/storage
+5. 用 `check_browser_health` 确认页面可控后继续 `analyze_target`
 
 ## 开发与测试
 

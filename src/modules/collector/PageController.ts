@@ -33,6 +33,19 @@ export interface ScrollOptions {
   y?: number;
 }
 
+export interface ReplayAction {
+  action: 'navigate' | 'click' | 'type' | 'wait' | 'scroll' | 'pressKey' | 'evaluate';
+  url?: string;
+  selector?: string;
+  text?: string;
+  delay?: number;
+  timeout?: number;
+  x?: number;
+  y?: number;
+  key?: string;
+  code?: string;
+}
+
 export interface ScreenshotOptions {
   path?: string;
   type?: 'png' | 'jpeg';
@@ -454,6 +467,47 @@ export class PageController {
   }
 
   /**
+   * 获取SessionStorage
+   */
+  async getSessionStorage(): Promise<Record<string, string>> {
+    const page = await this.collector.getActivePage();
+    const storage = await page.evaluate(() => {
+      const items: Record<string, string> = {};
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) {
+          items[key] = sessionStorage.getItem(key) || '';
+        }
+      }
+      return items;
+    });
+    logger.info(`Retrieved ${Object.keys(storage).length} sessionStorage items`);
+    return storage;
+  }
+
+  /**
+   * 设置SessionStorage
+   */
+  async setSessionStorage(key: string, value: string): Promise<void> {
+    const page = await this.collector.getActivePage();
+    await page.evaluate((k, v) => {
+      sessionStorage.setItem(k, v);
+    }, key, value);
+    logger.info(`Set sessionStorage: ${key}`);
+  }
+
+  /**
+   * 清除SessionStorage
+   */
+  async clearSessionStorage(): Promise<void> {
+    const page = await this.collector.getActivePage();
+    await page.evaluate(() => {
+      sessionStorage.clear();
+    });
+    logger.info('SessionStorage cleared');
+  }
+
+  /**
    * 🆕 模拟键盘按键
    */
   async pressKey(key: string): Promise<void> {
@@ -508,5 +562,64 @@ export class PageController {
   async getPage() {
     return await this.collector.getActivePage();
   }
-}
 
+  /**
+   * 执行交互回放，用于在采样前自动触发关键动作。
+   */
+  async replayActions(actions: ReplayAction[]): Promise<Array<{index: number; action: string; success: boolean; message: string}>> {
+    const results: Array<{index: number; action: string; success: boolean; message: string}> = [];
+    for (let index = 0; index < actions.length; index += 1) {
+      const item = actions[index];
+      try {
+        switch (item.action) {
+          case 'navigate':
+            if (!item.url) {
+              throw new Error('navigate action requires url');
+            }
+            await this.navigate(item.url, {timeout: item.timeout});
+            break;
+          case 'click':
+            if (!item.selector) {
+              throw new Error('click action requires selector');
+            }
+            await this.click(item.selector);
+            break;
+          case 'type':
+            if (!item.selector) {
+              throw new Error('type action requires selector');
+            }
+            await this.type(item.selector, item.text ?? '', {delay: item.delay});
+            break;
+          case 'wait':
+            if (!item.selector) {
+              throw new Error('wait action requires selector');
+            }
+            await this.waitForSelector(item.selector, item.timeout);
+            break;
+          case 'scroll':
+            await this.scroll({x: item.x, y: item.y});
+            break;
+          case 'pressKey':
+            if (!item.key) {
+              throw new Error('pressKey action requires key');
+            }
+            await this.pressKey(item.key);
+            break;
+          case 'evaluate':
+            if (!item.code) {
+              throw new Error('evaluate action requires code');
+            }
+            await this.evaluate(item.code);
+            break;
+          default:
+            throw new Error(`Unsupported action: ${(item as {action?: string}).action ?? 'unknown'}`);
+        }
+        results.push({index, action: item.action, success: true, message: 'ok'});
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        results.push({index, action: item.action, success: false, message});
+      }
+    }
+    return results;
+  }
+}

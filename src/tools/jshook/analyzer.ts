@@ -497,6 +497,18 @@ export const analyzeTarget = defineTool({
     correlationWindowMs: zod.number().int().positive().optional(),
     maxCorrelatedFlows: zod.number().int().positive().optional(),
     maxFingerprints: zod.number().int().positive().optional(),
+    autoReplayActions: zod.array(zod.object({
+      action: zod.enum(['navigate', 'click', 'type', 'wait', 'scroll', 'pressKey', 'evaluate']),
+      url: zod.string().url().optional(),
+      selector: zod.string().optional(),
+      text: zod.string().optional(),
+      delay: zod.number().int().nonnegative().optional(),
+      timeout: zod.number().int().positive().optional(),
+      x: zod.number().optional(),
+      y: zod.number().optional(),
+      key: zod.string().optional(),
+      code: zod.string().optional(),
+    })).optional(),
     collect: zod.object({
       smartMode: zod.enum(['summary', 'priority', 'incremental', 'full']).optional(),
       includeInline: zod.boolean().optional(),
@@ -552,6 +564,10 @@ export const analyzeTarget = defineTool({
       }
       injectedHooks.push({hookId: created.hookId, type});
     }
+
+    const replayResults = request.params.autoReplayActions?.length
+      ? await runtime.pageController.replayActions(request.params.autoReplayActions as any)
+      : [];
 
     if (request.params.waitAfterHookMs && request.params.waitAfterHookMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, request.params.waitAfterHookMs));
@@ -636,6 +652,7 @@ export const analyzeTarget = defineTool({
         suspiciousFlows: suspiciousFlows.slice(0, 10),
         timelineSample: hookTimeline.slice(0, 30),
       },
+      replay: replayResults,
       requestFingerprints,
       priorityTargets,
       signatureChain: {

@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {
   analyzeTarget,
   deobfuscateCode,
@@ -13,9 +16,16 @@ import { collectCode, collectionDiff, searchInScripts } from '../../../src/tools
 import { findClickableElements, getDomStructure, queryDom } from '../../../src/tools/jshook/dom.js';
 import { createHook, getHookData, injectHook, listHooks, removeHook } from '../../../src/tools/jshook/hook.js';
 import {
+  checkBrowserHealth,
+  deleteSessionState,
+  dumpSessionState,
   clickElement,
   getPerformanceMetrics,
+  listSessionStates,
+  loadSessionState,
   navigatePage as navigateJSHookPage,
+  restoreSessionState,
+  saveSessionState,
   takeScreenshot,
   typeText,
   waitForElement,
@@ -78,7 +88,20 @@ describe('jshook tools handlers', () => {
       waitForSelector: runtime.pageController.waitForSelector,
       screenshot: runtime.pageController.screenshot,
       metrics: runtime.pageController.getPerformanceMetrics,
+      getPage: runtime.pageController.getPage,
+      getCookies: runtime.pageController.getCookies,
+      getLocalStorage: runtime.pageController.getLocalStorage,
+      getSessionStorage: runtime.pageController.getSessionStorage,
+      clearCookies: runtime.pageController.clearCookies,
+      clearLocalStorage: runtime.pageController.clearLocalStorage,
+      clearSessionStorage: runtime.pageController.clearSessionStorage,
+      setCookies: runtime.pageController.setCookies,
+      setLocalStorage: runtime.pageController.setLocalStorage,
+      setSessionStorage: runtime.pageController.setSessionStorage,
+      replayActions: runtime.pageController.replayActions,
+      evaluate: runtime.pageController.evaluate,
       getActivePage: runtime.collector.getActivePage,
+      getBrowser: runtime.browserManager.getBrowser,
       injectAll: (StealthScripts2025 as any).injectAll,
       getPresets: (StealthScripts2025 as any).getPresets,
     };
@@ -136,9 +159,9 @@ describe('jshook tools handlers', () => {
       if (hookId.includes('xhr')) {
         return [{
           id: 11,
-          target: 'xhr',
+          target: undefined,
           event: 'open',
-          timestamp: baseTs + 120,
+          timestamp: undefined,
         }];
       }
       if (hookId.includes('websocket')) {
@@ -171,6 +194,15 @@ describe('jshook tools handlers', () => {
           timestamp: baseTs + 130,
         },
         {
+          id: 22,
+          target: 'fetch',
+          url: 'https://api.example.com/sign/12345?nonce=1&token=abc',
+          method: 'POST',
+          requestBody: '{"auth":"yes"}',
+          status: 201,
+          timestamp: baseTs + 131,
+        },
+        {
           id: 3,
           target: 'fetch',
           url: 'https://api.example.com/sign/67890?nonce=2&token=def',
@@ -190,7 +222,7 @@ describe('jshook tools handlers', () => {
         },
       ];
     };
-    runtime.hookManager.exportData = () => ({ all: true });
+    runtime.hookManager.exportData = () => 'hook-data-export';
     runtime.hookManager.getStats = () => ({
       totalHooks: 1,
       enabledHooks: 1,
@@ -207,10 +239,25 @@ describe('jshook tools handlers', () => {
     runtime.pageController.waitForSelector = async () => ({ found: true });
     runtime.pageController.screenshot = async () => Buffer.from('shot');
     runtime.pageController.getPerformanceMetrics = async () => ({ fcp: 100 });
+    runtime.pageController.getCookies = async () => [{name: 'sid', value: '1'}];
+    runtime.pageController.getLocalStorage = async () => ({token: 'abc'});
+    runtime.pageController.getSessionStorage = async () => ({nonce: 'n'});
+    runtime.pageController.clearCookies = async () => {};
+    runtime.pageController.clearLocalStorage = async () => {};
+    runtime.pageController.clearSessionStorage = async () => {};
+    runtime.pageController.setCookies = async () => {};
+    runtime.pageController.setLocalStorage = async () => {};
+    runtime.pageController.setSessionStorage = async () => {};
+    runtime.pageController.replayActions = async (actions: any[]) =>
+      actions.map((a, i) => ({index: i, action: a.action, success: true, message: 'ok'}));
+    runtime.pageController.evaluate = async () => 2;
 
     const activePage = {
       setUserAgent: async () => {},
+      url: () => 'https://example.com/dashboard',
+      title: async () => 'Dashboard',
     };
+    runtime.pageController.getPage = async () => activePage as any;
     runtime.collector.getActivePage = async () => activePage;
 
     (StealthScripts2025 as any).injectAll = async () => {};
@@ -228,6 +275,17 @@ describe('jshook tools handlers', () => {
 
       await detectCrypto.handler({ params: { code: 'md5(x)' } } as any, res as any, {} as any);
       await analyzeTarget.handler({ params: { url: 'https://example.com', hookPreset: 'api-signature' } } as any, res as any, {} as any);
+      await analyzeTarget.handler({
+        params: {
+          url: 'https://example.com',
+          hookPreset: 'none',
+          autoInjectHooks: false,
+          autoReplayActions: [
+            {action: 'click', selector: '#submit'},
+            {action: 'type', selector: '#k', text: 'v'},
+          ],
+        },
+      } as any, res as any, {} as any);
       runtime.collector.collect = async () => null;
       await analyzeTarget.handler({
         params: { url: 'https://example.com', hookPreset: 'none', autoInjectHooks: false },
@@ -314,6 +372,8 @@ describe('jshook tools handlers', () => {
       await listHooks.handler({ params: {} } as any, res as any, {} as any);
       await getHookData.handler({ params: { hookId: 'h1' } } as any, res as any, {} as any);
       await getHookData.handler({ params: {} } as any, res as any, {} as any);
+      await getHookData.handler({ params: { hookId: 'h1', view: 'summary', maxRecords: 2 } } as any, res as any, {} as any);
+      await getHookData.handler({ params: { view: 'summary', maxRecords: 1 } } as any, res as any, {} as any);
       await removeHook.handler({ params: { hookId: 'h1' } } as any, res as any, {} as any);
       await removeHook.handler({ params: { hookId: 'missing' } } as any, res as any, {} as any);
 
@@ -323,6 +383,55 @@ describe('jshook tools handlers', () => {
       await waitForElement.handler({ params: { selector: '#x', timeout: 100 } } as any, res as any, {} as any);
       await takeScreenshot.handler({ params: { type: 'png', fullPage: true } } as any, res as any, {} as any);
       await getPerformanceMetrics.handler({ params: {} } as any, res as any, {} as any);
+      await saveSessionState.handler({ params: { sessionId: 's1' } } as any, res as any, {} as any);
+      await saveSessionState.handler({
+        params: {
+          sessionId: 's-empty',
+          includeCookies: false,
+          includeLocalStorage: false,
+          includeSessionStorage: false,
+        },
+      } as any, res as any, {} as any);
+      await restoreSessionState.handler({ params: { sessionId: 's1', clearStorageBeforeRestore: true } } as any, res as any, {} as any);
+      await restoreSessionState.handler({ params: { sessionId: 's1', navigateToSavedUrl: false } } as any, res as any, {} as any);
+      await listSessionStates.handler({ params: {} } as any, res as any, {} as any);
+      await dumpSessionState.handler({ params: { sessionId: 's1', pretty: false } } as any, res as any, {} as any);
+      const tempDir = await mkdtemp(join(tmpdir(), 'js-reverse-mcp-'));
+      const snapshotPath = join(tempDir, 'session-s1.json');
+      try {
+        await dumpSessionState.handler({ params: { sessionId: 's1', path: snapshotPath } } as any, res as any, {} as any);
+        const snapshotJson = await readFile(snapshotPath, 'utf8');
+        await deleteSessionState.handler({ params: { sessionId: 's1' } } as any, res as any, {} as any);
+        await loadSessionState.handler({ params: { snapshotJson, sessionId: 's1' } } as any, res as any, {} as any);
+        await assert.rejects(async () => {
+          await loadSessionState.handler({ params: { snapshotJson, sessionId: 's1' } } as any, res as any, {} as any);
+        });
+      await loadSessionState.handler({ params: { path: snapshotPath, sessionId: 's1', overwrite: true } } as any, res as any, {} as any);
+      } finally {
+        await rm(tempDir, {recursive: true, force: true});
+      }
+      await assert.rejects(async () => {
+        await restoreSessionState.handler({ params: { sessionId: 'missing-session' } } as any, res as any, {} as any);
+      });
+      await assert.rejects(async () => {
+        await dumpSessionState.handler({ params: { sessionId: 'missing-session' } } as any, res as any, {} as any);
+      });
+      await assert.rejects(async () => {
+        await loadSessionState.handler({ params: {} } as any, res as any, {} as any);
+      });
+      await assert.rejects(async () => {
+        await loadSessionState.handler({ params: { snapshotJson: '{bad json}' } } as any, res as any, {} as any);
+      });
+      await assert.rejects(async () => {
+        await loadSessionState.handler({ params: { snapshotJson: '1' } } as any, res as any, {} as any);
+      });
+      await checkBrowserHealth.handler({ params: {} } as any, res as any, {} as any);
+      runtime.browserManager.getBrowser = () => ({isConnected: () => false});
+      runtime.pageController.getPage = async () => {
+        throw new Error('no page');
+      };
+      await checkBrowserHealth.handler({ params: {} } as any, res as any, {} as any);
+      runtime.pageController.getPage = async () => activePage as any;
 
       await injectStealth.handler({ params: { preset: 'windows-chrome' } } as any, res as any, {} as any);
       await listStealthPresets.handler({ params: {} } as any, res as any, {} as any);
@@ -341,6 +450,13 @@ describe('jshook tools handlers', () => {
       assert.ok(res.lines.some((line) => line.includes('"actionPlan"')));
       assert.ok(res.lines.some((line) => line.includes('"requestFingerprints"')));
       assert.ok(res.lines.some((line) => line.includes('"priorityTargets"')));
+      assert.ok(res.lines.some((line) => line.includes('"replay"')));
+      assert.ok(res.lines.some((line) => line.includes('"healthy"')));
+      assert.ok(res.lines.some((line) => line.includes('BROWSER_DISCONNECTED')));
+      assert.ok(res.lines.some((line) => line.includes('"unique"')));
+      assert.ok(res.lines.some((line) => line.includes('"overwritten"')));
+      assert.ok(res.lines.some((line) => line.includes('"remaining"')));
+      assert.ok(res.lines.some((line) => line.includes('hook-data-export')));
       assert.ok(res.lines.some((line) => line.includes('"method": "WS"')));
       assert.ok(res.lines.some((line) => line.includes('"type": "function"')));
     } finally {
@@ -372,7 +488,20 @@ describe('jshook tools handlers', () => {
       runtime.pageController.waitForSelector = originals.waitForSelector;
       runtime.pageController.screenshot = originals.screenshot;
       runtime.pageController.getPerformanceMetrics = originals.metrics;
+      runtime.pageController.getPage = originals.getPage;
+      runtime.pageController.getCookies = originals.getCookies;
+      runtime.pageController.getLocalStorage = originals.getLocalStorage;
+      runtime.pageController.getSessionStorage = originals.getSessionStorage;
+      runtime.pageController.clearCookies = originals.clearCookies;
+      runtime.pageController.clearLocalStorage = originals.clearLocalStorage;
+      runtime.pageController.clearSessionStorage = originals.clearSessionStorage;
+      runtime.pageController.setCookies = originals.setCookies;
+      runtime.pageController.setLocalStorage = originals.setLocalStorage;
+      runtime.pageController.setSessionStorage = originals.setSessionStorage;
+      runtime.pageController.replayActions = originals.replayActions;
+      runtime.pageController.evaluate = originals.evaluate;
       runtime.collector.getActivePage = originals.getActivePage;
+      runtime.browserManager.getBrowser = originals.getBrowser;
       (StealthScripts2025 as any).injectAll = originals.injectAll;
       (StealthScripts2025 as any).getPresets = originals.getPresets;
     }

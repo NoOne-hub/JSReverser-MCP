@@ -4,18 +4,23 @@
 
 > 快速按逆向目标查工具，请先看：[`docs/reverse-task-index.md`](./reverse-task-index.md)
 
-- **[Navigation automation](#navigation-automation)** (13 tools)
+- **[Navigation automation](#navigation-automation)** (18 tools)
+  - [`check_browser_health`](#check_browser_health)
   - [`click_element`](#click_element)
+  - [`delete_session_state`](#delete_session_state)
+  - [`dump_session_state`](#dump_session_state)
   - [`find_clickable_elements`](#find_clickable_elements)
   - [`get_dom_structure`](#get_dom_structure)
   - [`get_performance_metrics`](#get_performance_metrics)
   - [`list_pages`](#list_pages)
-  - [`navigate_page`](#navigate_page)
+  - [`list_session_states`](#list_session_states)
+  - [`load_session_state`](#load_session_state)
   - [`navigate_page`](#navigate_page)
   - [`new_page`](#new_page)
   - [`query_dom`](#query_dom)
+  - [`restore_session_state`](#restore_session_state)
+  - [`save_session_state`](#save_session_state)
   - [`select_page`](#select_page)
-  - [`take_screenshot`](#take_screenshot)
   - [`type_text`](#type_text)
   - [`wait_for_element`](#wait_for_element)
 - **[Network](#network)** (6 tools)
@@ -30,7 +35,7 @@
   - [`get_console_message`](#get_console_message)
   - [`list_console_messages`](#list_console_messages)
   - [`take_screenshot`](#take_screenshot)
-- **[JS Reverse Engineering](#js-reverse-engineering)** (45 tools)
+- **[JS Reverse Engineering](#js-reverse-engineering)** (44 tools)
   - [`analyze_target`](#analyze_target)
   - [`break_on_xhr`](#break_on_xhr)
   - [`collect_code`](#collect_code)
@@ -51,7 +56,6 @@
   - [`inject_stealth`](#inject_stealth)
   - [`inspect_object`](#inspect_object)
   - [`list_breakpoints`](#list_breakpoints)
-  - [`list_hooks`](#list_hooks)
   - [`list_hooks`](#list_hooks)
   - [`list_scripts`](#list_scripts)
   - [`list_stealth_features`](#list_stealth_features)
@@ -79,6 +83,10 @@
 
 ## Navigation automation
 
+### `check_browser_health`
+
+**Description:** Check browser connectivity and active page readiness before running reverse workflows.
+
 ### `click_element`
 
 **Description:** Click an element by selector.
@@ -86,6 +94,24 @@
 **Parameters:**
 
 - `selector`
+
+### `delete_session_state`
+
+**Description:** Delete one in-memory session snapshot by sessionId.
+
+**Parameters:**
+
+- `sessionId`
+
+### `dump_session_state`
+
+**Description:** Export a saved session snapshot as JSON, optionally writing to a file.
+
+**Parameters:**
+
+- `sessionId`
+- `path`
+- `pretty`
 
 ### `find_clickable_elements`
 
@@ -112,6 +138,21 @@
 
 **Description:** Get a list of pages open in the browser.
 
+### `list_session_states`
+
+**Description:** List all saved session snapshots in memory.
+
+### `load_session_state`
+
+**Description:** Load a session snapshot from JSON string or file into memory.
+
+**Parameters:**
+
+- `sessionId`
+- `path`
+- `snapshotJson`
+- `overwrite`
+
 ### `navigate_page`
 
 **Description:** Navigates the currently selected page to a URL, or performs back/forward/reload navigation. Waits for DOMContentLoaded event (not full page load). Default timeout is 10 seconds.
@@ -121,15 +162,6 @@
 - `type`
 - `url`
 - `ignoreCache`
-- `timeout`
-
-### `navigate_page`
-
-**Description:** Navigate current page to a URL.
-
-**Parameters:**
-
-- `url`
 - `timeout`
 
 ### `new_page`
@@ -151,6 +183,27 @@
 - `all`
 - `limit`
 
+### `restore_session_state`
+
+**Description:** Restore a previously saved session snapshot to current page.
+
+**Parameters:**
+
+- `sessionId`
+- `navigateToSavedUrl`
+- `clearStorageBeforeRestore`
+
+### `save_session_state`
+
+**Description:** Save current page session state (cookies/localStorage/sessionStorage) into in-memory snapshot.
+
+**Parameters:**
+
+- `sessionId`
+- `includeCookies`
+- `includeLocalStorage`
+- `includeSessionStorage`
+
 ### `select_page`
 
 **Description:** Select a page as a context for future tool calls.
@@ -158,16 +211,6 @@
 **Parameters:**
 
 - `pageIdx`
-
-### `take_screenshot`
-
-**Description:** Take screenshot of current page.
-
-**Parameters:**
-
-- `path`
-- `fullPage`
-- `type`
 
 ### `type_text`
 
@@ -310,6 +353,7 @@ so returned values have to JSON-serializable.
 - `correlationWindowMs`
 - `maxCorrelatedFlows`
 - `maxFingerprints`
+- `autoReplayActions`
 - `collect`
 
 ### `break_on_xhr`
@@ -410,11 +454,13 @@ so returned values have to JSON-serializable.
 
 ### `get_hook_data`
 
-**Description:** Get captured data for one hook or all hooks.
+**Description:** Get captured data for one hook or all hooks. Supports raw view and summary view for noise reduction.
 
 **Parameters:**
 
 - `hookId`
+- `view`
+- `maxRecords`
 
 ### `get_paused_info`
 
@@ -500,10 +546,6 @@ so returned values have to JSON-serializable.
 ### `list_hooks`
 
 **Description:** Lists all active function hooks.
-
-### `list_hooks`
-
-**Description:** List all created hooks and statuses.
 
 ### `list_scripts`
 
@@ -690,3 +732,4 @@ so returned values have to JSON-serializable.
 **Parameters:**
 
 - `hookId`
+

@@ -3,10 +3,19 @@ import assert from 'node:assert';
 import {zod} from '../../../src/third_party/index.js';
 import {collectCode, collectionDiff} from '../../../src/tools/jshook/collector.js';
 import {analyzeTarget, riskPanel, summarizeCode, exportSessionReport} from '../../../src/tools/jshook/analyzer.js';
-import {createHook} from '../../../src/tools/jshook/hook.js';
+import {createHook, getHookData} from '../../../src/tools/jshook/hook.js';
 import {injectStealth} from '../../../src/tools/jshook/stealth.js';
 import {queryDom} from '../../../src/tools/jshook/dom.js';
-import {navigatePage} from '../../../src/tools/jshook/page.js';
+import {
+  navigatePage,
+  checkBrowserHealth,
+  deleteSessionState,
+  dumpSessionState,
+  listSessionStates,
+  loadSessionState,
+  restoreSessionState,
+  saveSessionState,
+} from '../../../src/tools/jshook/page.js';
 
 describe('jshook tools schema', () => {
   it('validates collect_code schema', () => {
@@ -63,23 +72,47 @@ describe('jshook tools schema', () => {
 
   it('validates hook and stealth schemas', () => {
     const hookSchema = zod.object(createHook.schema);
+    const hookDataSchema = zod.object(getHookData.schema);
     const stealthSchema = zod.object(injectStealth.schema);
 
     const hook = hookSchema.parse({type: 'fetch'});
+    const hookData = hookDataSchema.parse({hookId: 'h1', view: 'summary', maxRecords: 20});
     const stealth = stealthSchema.parse({preset: 'windows-chrome'});
 
     assert.strictEqual(hook.type, 'fetch');
+    assert.strictEqual(hookData.view, 'summary');
     assert.strictEqual(stealth.preset, 'windows-chrome');
   });
 
   it('validates dom and page schemas', () => {
     const domSchema = zod.object(queryDom.schema);
     const pageSchema = zod.object(navigatePage.schema);
+    const healthSchema = zod.object(checkBrowserHealth.schema);
+    const saveSessionSchema = zod.object(saveSessionState.schema);
+    const restoreSessionSchema = zod.object(restoreSessionState.schema);
+    const listSessionSchema = zod.object(listSessionStates.schema);
+    const deleteSessionSchema = zod.object(deleteSessionState.schema);
+    const dumpSessionSchema = zod.object(dumpSessionState.schema);
+    const loadSessionSchema = zod.object(loadSessionState.schema);
 
     const dom = domSchema.parse({selector: 'button'});
     const page = pageSchema.parse({url: 'https://example.com'});
+    const health = healthSchema.parse({});
+    const saveSession = saveSessionSchema.parse({sessionId: 's1', includeCookies: true});
+    const restoreSession = restoreSessionSchema.parse({sessionId: 's1', clearStorageBeforeRestore: true});
+    const listed = listSessionSchema.parse({});
+    const removed = deleteSessionSchema.parse({sessionId: 's1'});
+    const dumped = dumpSessionSchema.parse({sessionId: 's1', pretty: false});
+    const loaded = loadSessionSchema.parse({snapshotJson: '{"id":"s1"}', overwrite: true});
 
     assert.strictEqual(dom.selector, 'button');
     assert.strictEqual(page.url, 'https://example.com');
+    assert.deepStrictEqual(health, {});
+    assert.strictEqual(saveSession.sessionId, 's1');
+    assert.strictEqual(restoreSession.clearStorageBeforeRestore, true);
+    assert.deepStrictEqual(listed, {});
+    assert.strictEqual(removed.sessionId, 's1');
+    assert.strictEqual(dumped.pretty, false);
+    assert.strictEqual(loaded.overwrite, true);
   });
 });

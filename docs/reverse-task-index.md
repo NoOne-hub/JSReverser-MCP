@@ -68,7 +68,18 @@
 
 用于沉淀会话证据、对比两次采样差异。
 
-## 8) 典型最小链路
+## 8) 登录态复用（需登录站点建议）
+
+- `save_session_state`
+- `restore_session_state`
+- `list_session_states`
+- `dump_session_state`
+- `load_session_state`
+- `check_browser_health`
+
+适合“必须登录后才能访问”的目标站，减少重复扫码/验证码成本。
+
+## 9) 典型最小链路
 
 1. `new_page`
 2. `analyze_target`
@@ -79,6 +90,6 @@
 7. `risk_panel`
 8. `export_session_report`
 
-## 9) 参数总表
+## 10) 参数总表
 
 完整参数与字段说明请查：`docs/tool-reference.md`

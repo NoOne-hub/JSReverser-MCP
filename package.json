@@ -8,6 +8,7 @@
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('build', {recursive: true, force: true})\"",
     "bundle": "npm run clean && npm run build && rollup -c rollup.config.mjs",
+    "build:dev": "tsc",
     "build": "tsc && node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/post-build.ts",
     "typecheck": "tsc --noEmit",
     "format": "eslint --cache --fix . && prettier --write --cache .",
@@ -19,6 +20,7 @@
     "test:node20": "node --require ./build/tests/setup.js --test-reporter spec --test-force-exit --test build/tests",
     "test": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test \"build/tests/**/*.test.js\"",
     "test:unit": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test build/tests/unit/**/*.test.js",
+    "test:quick": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test build/tests/unit/tools/**/*.test.js build/tests/unit/services/**/*.test.js build/tests/unit/utils/**/*.test.js",
     "test:property": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test build/tests/property/**/*.test.js",
     "test:integration": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test build/tests/integration/**/*.test.js",
     "test:perf": "RUN_PERF_TESTS=true npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test build/tests/performance/**/*.test.js",

@@ -50,6 +50,19 @@ function allTools(): ToolDef[] {
   ] as ToolDef[];
 }
 
+function uniqueToolsByName(tools: ToolDef[]): ToolDef[] {
+  const seen = new Set<string>();
+  const deduped: ToolDef[] = [];
+  for (const tool of tools) {
+    if (seen.has(tool.name)) {
+      continue;
+    }
+    seen.add(tool.name);
+    deduped.push(tool);
+  }
+  return deduped;
+}
+
 function generateConfigOptionsMarkdown(): string {
   let markdown = '';
   for (const [optionName, optionConfig] of Object.entries(cliOptions)) {
@@ -88,7 +101,7 @@ function updateReadmeBlock(beginMarker: string, endMarker: string, content: stri
 }
 
 function generateDocs(): void {
-  const tools = allTools().sort((a, b) => a.name.localeCompare(b.name));
+  const tools = uniqueToolsByName(allTools()).sort((a, b) => a.name.localeCompare(b.name));
   const categories = new Map<string, ToolDef[]>();
 
   for (const tool of tools) {
@@ -98,7 +111,7 @@ function generateDocs(): void {
   }
 
   const categoryOrder = Object.values(ToolCategory);
-  let markdown = `<!-- AUTO GENERATED DO NOT EDIT - run 'npm run docs' to update-->\n\n# Chrome DevTools MCP Tool Reference\n\n`;
+  let markdown = `<!-- AUTO GENERATED DO NOT EDIT - run 'npm run docs' to update-->\n\n# Chrome DevTools MCP Tool Reference\n\n> 快速按逆向目标查工具，请先看：[\`docs/reverse-task-index.md\`](./reverse-task-index.md)\n\n`;
 
   for (const category of categoryOrder) {
     const toolsInCategory = categories.get(category) || [];
