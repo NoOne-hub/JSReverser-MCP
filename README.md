@@ -46,7 +46,7 @@ npm run start
 
 ### 3) 配置 MCP 客户端
 
-通用 MCP 配置如下：
+通用 MCP 客户端（如支持 JSON 的客户端）配置如下：
 
 ```json
 {
@@ -150,9 +150,28 @@ claude mcp add js-reverse node /ABSOLUTE/PATH/js-reverse-mcp-main/build/src/inde
 - Command: `node`
 - Args: `[/ABSOLUTE/PATH/js-reverse-mcp-main/build/src/index.js]`
 
-### Codex / 通用 MCP 客户端
+### Codex
 
-使用上面的通用 JSON 即可。  
+Codex 使用 `config.toml`，不是 JSON。可在 `~/.codex/config.toml` 中配置：
+
+```toml
+[mcp_servers.js-reverse]
+command = "node"
+args = ["/ABSOLUTE/PATH/js-reverse-mcp-main/build/src/index.js"]
+```
+
+如需连接已开启的 Chrome，可在 `args` 里追加：
+
+```toml
+[mcp_servers.js-reverse]
+command = "node"
+args = [
+  "/ABSOLUTE/PATH/js-reverse-mcp-main/build/src/index.js",
+  "--browserUrl",
+  "http://127.0.0.1:9222"
+]
+```
+
 客户端接入说明统一维护在本 README，不再单独拆分到 `docs`。
 
 ## 环境变量配置
