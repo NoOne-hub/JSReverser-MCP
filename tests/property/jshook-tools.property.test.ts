@@ -2,12 +2,12 @@ import {describe, it} from 'node:test';
 import fc from 'fast-check';
 import assert from 'node:assert';
 import {zod} from '../../src/third_party/index.js';
-import {collectCode} from '../../src/tools/jshook/collector.js';
-import {summarizeCode} from '../../src/tools/jshook/analyzer.js';
-import {createHook} from '../../src/tools/jshook/hook.js';
-import {injectStealth} from '../../src/tools/jshook/stealth.js';
-import {queryDom} from '../../src/tools/jshook/dom.js';
-import {clickElement} from '../../src/tools/jshook/page.js';
+import {collectCode} from '../../src/tools/collector.js';
+import {summarizeCode} from '../../src/tools/analyzer.js';
+import {createHook} from '../../src/tools/hook.js';
+import {injectStealth} from '../../src/tools/stealth.js';
+import {queryDom} from '../../src/tools/dom.js';
+import {clickElement} from '../../src/tools/page.js';
 
 const collectSchema = zod.object(collectCode.schema);
 const summarizeSchema = zod.object(summarizeCode.schema);

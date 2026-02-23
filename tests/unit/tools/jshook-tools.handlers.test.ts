@@ -11,10 +11,10 @@ import {
   riskPanel,
   summarizeCode,
   understandCode,
-} from '../../../src/tools/jshook/analyzer.js';
-import { collectCode, collectionDiff, searchInScripts } from '../../../src/tools/jshook/collector.js';
-import { findClickableElements, getDomStructure, queryDom } from '../../../src/tools/jshook/dom.js';
-import { createHook, getHookData, injectHook, removeHook } from '../../../src/tools/jshook/hook.js';
+} from '../../../src/tools/analyzer.js';
+import { collectCode, collectionDiff, searchInScripts } from '../../../src/tools/collector.js';
+import { findClickableElements, getDomStructure, queryDom } from '../../../src/tools/dom.js';
+import { createHook, getHookData, injectHook, removeHook } from '../../../src/tools/hook.js';
 import {
   checkBrowserHealth,
   deleteSessionState,
@@ -27,14 +27,14 @@ import {
   saveSessionState,
   typeText,
   waitForElement,
-} from '../../../src/tools/jshook/page.js';
-import { getJSHookRuntime } from '../../../src/tools/jshook/runtime.js';
+} from '../../../src/tools/page.js';
+import { getJSHookRuntime } from '../../../src/tools/runtime.js';
 import {
   injectStealth,
   listStealthFeatures,
   listStealthPresets,
   setUserAgent,
-} from '../../../src/tools/jshook/stealth.js';
+} from '../../../src/tools/stealth.js';
 import { StealthScripts2025 } from '../../../src/modules/stealth/StealthScripts2025.js';
 
 function makeResponse() {

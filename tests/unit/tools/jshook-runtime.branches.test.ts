@@ -2,7 +2,7 @@ import {describe, it} from 'node:test';
 import assert from 'node:assert';
 
 async function importFreshRuntime(tag: string) {
-  return import(`../../../src/tools/jshook/runtime.js?branch=${tag}_${Date.now()}`);
+  return import(`../../../src/tools/runtime.js?branch=${tag}_${Date.now()}`);
 }
 
 describe('jshook runtime branch coverage', () => {

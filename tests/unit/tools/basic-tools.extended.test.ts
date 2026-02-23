@@ -4,7 +4,7 @@ import { listPages, navigatePage, newPage, selectPage } from '../../../src/tools
 import { getNetworkRequest, listNetworkRequests } from '../../../src/tools/network.js';
 import { screenshot } from '../../../src/tools/screenshot.js';
 import { evaluateScript } from '../../../src/tools/script.js';
-import { getJSHookRuntime } from '../../../src/tools/jshook/runtime.js';
+import { getJSHookRuntime } from '../../../src/tools/runtime.js';
 
 function makeResponse() {
   const lines: string[] = [];

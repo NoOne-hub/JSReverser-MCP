@@ -1,11 +1,11 @@
 import {describe, it} from 'node:test';
 import assert from 'node:assert';
 import {zod} from '../../../src/third_party/index.js';
-import {collectCode, collectionDiff} from '../../../src/tools/jshook/collector.js';
-import {analyzeTarget, riskPanel, summarizeCode, exportSessionReport} from '../../../src/tools/jshook/analyzer.js';
-import {createHook, getHookData} from '../../../src/tools/jshook/hook.js';
-import {injectStealth} from '../../../src/tools/jshook/stealth.js';
-import {queryDom} from '../../../src/tools/jshook/dom.js';
+import {collectCode, collectionDiff} from '../../../src/tools/collector.js';
+import {analyzeTarget, riskPanel, summarizeCode, exportSessionReport} from '../../../src/tools/analyzer.js';
+import {createHook, getHookData} from '../../../src/tools/hook.js';
+import {injectStealth} from '../../../src/tools/stealth.js';
+import {queryDom} from '../../../src/tools/dom.js';
 import {
   clickElement,
   checkBrowserHealth,
@@ -15,7 +15,7 @@ import {
   loadSessionState,
   restoreSessionState,
   saveSessionState,
-} from '../../../src/tools/jshook/page.js';
+} from '../../../src/tools/page.js';
 
 describe('jshook tools schema', () => {
   it('validates collect_code schema', () => {

@@ -15,12 +15,12 @@ import * as pagesTools from '../build/src/tools/pages.js';
 import * as screenshotTools from '../build/src/tools/screenshot.js';
 import * as scriptTools from '../build/src/tools/script.js';
 import * as websocketTools from '../build/src/tools/websocket.js';
-import * as jshookCollectorTools from '../build/src/tools/jshook/collector.js';
-import * as jshookAnalyzerTools from '../build/src/tools/jshook/analyzer.js';
-import * as jshookHookTools from '../build/src/tools/jshook/hook.js';
-import * as jshookStealthTools from '../build/src/tools/jshook/stealth.js';
-import * as jshookDomTools from '../build/src/tools/jshook/dom.js';
-import * as jshookPageTools from '../build/src/tools/jshook/page.js';
+import * as jshookCollectorTools from '../build/src/tools/collector.js';
+import * as jshookAnalyzerTools from '../build/src/tools/analyzer.js';
+import * as jshookHookTools from '../build/src/tools/hook.js';
+import * as jshookStealthTools from '../build/src/tools/stealth.js';
+import * as jshookDomTools from '../build/src/tools/dom.js';
+import * as jshookPageTools from '../build/src/tools/page.js';
 
 const OUTPUT_PATH = './docs/tool-reference.md';
 const README_PATH = './README.md';

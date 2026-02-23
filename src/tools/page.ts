@@ -1,6 +1,6 @@
-import {zod} from '../../third_party/index.js';
-import {defineTool} from '../ToolDefinition.js';
-import {ToolCategory} from '../categories.js';
+import {zod} from '../third_party/index.js';
+import {defineTool} from './ToolDefinition.js';
+import {ToolCategory} from './categories.js';
 import {getJSHookRuntime} from './runtime.js';
 import {readFile, writeFile} from 'node:fs/promises';
 import {createCipheriv, createDecipheriv, createHash, randomBytes} from 'node:crypto';

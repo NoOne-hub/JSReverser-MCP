@@ -1,8 +1,8 @@
-import {zod} from '../../third_party/index.js';
-import {defineTool} from '../ToolDefinition.js';
-import {ToolCategory} from '../categories.js';
+import {zod} from '../third_party/index.js';
+import {defineTool} from './ToolDefinition.js';
+import {ToolCategory} from './categories.js';
 import {getJSHookRuntime} from './runtime.js';
-import {TokenBudgetManager} from '../../utils/TokenBudgetManager.js';
+import {TokenBudgetManager} from '../utils/TokenBudgetManager.js';
 
 export const deobfuscateCode = defineTool({
   name: 'deobfuscate_code',
