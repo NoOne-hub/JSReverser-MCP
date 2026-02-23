@@ -7,7 +7,7 @@ import {createHook, getHookData} from '../../../src/tools/jshook/hook.js';
 import {injectStealth} from '../../../src/tools/jshook/stealth.js';
 import {queryDom} from '../../../src/tools/jshook/dom.js';
 import {
-  navigatePage,
+  clickElement,
   checkBrowserHealth,
   deleteSessionState,
   dumpSessionState,
@@ -86,7 +86,7 @@ describe('jshook tools schema', () => {
 
   it('validates dom and page schemas', () => {
     const domSchema = zod.object(queryDom.schema);
-    const pageSchema = zod.object(navigatePage.schema);
+    const pageSchema = zod.object(clickElement.schema);
     const healthSchema = zod.object(checkBrowserHealth.schema);
     const saveSessionSchema = zod.object(saveSessionState.schema);
     const restoreSessionSchema = zod.object(restoreSessionState.schema);
@@ -96,7 +96,7 @@ describe('jshook tools schema', () => {
     const loadSessionSchema = zod.object(loadSessionState.schema);
 
     const dom = domSchema.parse({selector: 'button'});
-    const page = pageSchema.parse({url: 'https://example.com'});
+    const page = pageSchema.parse({selector: '#x'});
     const health = healthSchema.parse({});
     const saveSession = saveSessionSchema.parse({sessionId: 's1', includeCookies: true});
     const restoreSession = restoreSessionSchema.parse({sessionId: 's1', clearStorageBeforeRestore: true});
@@ -106,7 +106,7 @@ describe('jshook tools schema', () => {
     const loaded = loadSessionSchema.parse({snapshotJson: '{"id":"s1"}', overwrite: true});
 
     assert.strictEqual(dom.selector, 'button');
-    assert.strictEqual(page.url, 'https://example.com');
+    assert.strictEqual(page.selector, '#x');
     assert.deepStrictEqual(health, {});
     assert.strictEqual(saveSession.sessionId, 's1');
     assert.strictEqual(restoreSession.clearStorageBeforeRestore, true);

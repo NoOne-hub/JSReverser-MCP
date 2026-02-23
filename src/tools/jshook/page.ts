@@ -118,28 +118,6 @@ function normalizeSnapshot(snapshot: unknown, fallbackId?: string): SessionSnaps
   };
 }
 
-export const navigatePage = defineTool({
-  name: 'navigate_page',
-  aliases: ['jshook_navigate_page'],
-  description: 'Navigate current page to a URL.',
-  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
-  schema: {
-    url: zod.string().url(),
-    timeout: zod.number().int().positive().optional(),
-  },
-  handler: async (request, response) => {
-    ensureCleanupLoop();
-    cleanupExpiredSessions();
-    const runtime = getJSHookRuntime();
-    const result = await runtime.pageController.navigate(request.params.url, {
-      timeout: request.params.timeout,
-    });
-    response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify(result, null, 2));
-    response.appendResponseLine('```');
-  },
-});
-
 export const clickElement = defineTool({
   name: 'click_element',
   description: 'Click an element by selector.',
@@ -190,28 +168,6 @@ export const waitForElement = defineTool({
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify(result, null, 2));
     response.appendResponseLine('```');
-  },
-});
-
-export const takeScreenshot = defineTool({
-  name: 'take_screenshot',
-  description: 'Take screenshot of current page.',
-  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
-  schema: {
-    path: zod.string().optional(),
-    fullPage: zod.boolean().optional(),
-    type: zod.enum(['png', 'jpeg']).optional(),
-  },
-  handler: async (request, response) => {
-    ensureCleanupLoop();
-    cleanupExpiredSessions();
-    const runtime = getJSHookRuntime();
-    const buffer = await runtime.pageController.screenshot({
-      path: request.params.path,
-      fullPage: request.params.fullPage,
-      type: request.params.type,
-    });
-    response.appendResponseLine(`Screenshot taken (${buffer.length} bytes).`);
   },
 });
 

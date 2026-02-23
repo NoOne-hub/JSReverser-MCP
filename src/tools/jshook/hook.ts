@@ -103,21 +103,6 @@ export const injectHook = defineTool({
   },
 });
 
-export const listHooks = defineTool({
-  name: 'list_hooks',
-  aliases: ['jshook_list_hooks'],
-  description: 'List all created hooks and statuses.',
-  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
-  schema: {},
-  handler: async (_request, response) => {
-    const runtime = getJSHookRuntime();
-    const hooks = runtime.hookManager.getAllHooks();
-    response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify(hooks, null, 2));
-    response.appendResponseLine('```');
-  },
-});
-
 export const getHookData = defineTool({
   name: 'get_hook_data',
   description: 'Get captured data for one hook or all hooks. Supports raw view and summary view for noise reduction.',

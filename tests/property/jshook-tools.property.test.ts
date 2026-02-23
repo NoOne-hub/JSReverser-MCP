@@ -7,14 +7,14 @@ import {summarizeCode} from '../../src/tools/jshook/analyzer.js';
 import {createHook} from '../../src/tools/jshook/hook.js';
 import {injectStealth} from '../../src/tools/jshook/stealth.js';
 import {queryDom} from '../../src/tools/jshook/dom.js';
-import {navigatePage} from '../../src/tools/jshook/page.js';
+import {clickElement} from '../../src/tools/jshook/page.js';
 
 const collectSchema = zod.object(collectCode.schema);
 const summarizeSchema = zod.object(summarizeCode.schema);
 const hookSchema = zod.object(createHook.schema);
 const stealthSchema = zod.object(injectStealth.schema);
 const domSchema = zod.object(queryDom.schema);
-const pageSchema = zod.object(navigatePage.schema);
+const pageSchema = zod.object(clickElement.schema);
 
 describe('JSHook tool properties', () => {
   it('Property 4: collection mode support', () => {
@@ -74,7 +74,7 @@ describe('JSHook tool properties', () => {
   });
 
   it('Property 19: page control operations', () => {
-    const parsed = pageSchema.parse({url: 'https://example.com'});
-    assert.strictEqual(parsed.url, 'https://example.com');
+    const parsed = pageSchema.parse({selector: '#submit'});
+    assert.strictEqual(parsed.selector, '#submit');
   });
 });

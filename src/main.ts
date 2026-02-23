@@ -108,10 +108,7 @@ Avoid sharing sensitive or personal information that you do not want to share wi
 
 const toolScheduler = new ToolExecutionScheduler();
 const tokenBudgetManager = TokenBudgetManager.getInstance();
-const toolCanonicalSourceOverrides: Record<string, string> = {
-  navigate_page: 'jshookPage',
-  list_hooks: 'jshookHook',
-};
+const toolCanonicalSourceOverrides: Record<string, string> = {};
 
 function createTraceId(toolName: string): string {
   return `${toolName}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;

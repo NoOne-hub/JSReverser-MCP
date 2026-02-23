@@ -14,7 +14,7 @@ import {
 } from '../../../src/tools/jshook/analyzer.js';
 import { collectCode, collectionDiff, searchInScripts } from '../../../src/tools/jshook/collector.js';
 import { findClickableElements, getDomStructure, queryDom } from '../../../src/tools/jshook/dom.js';
-import { createHook, getHookData, injectHook, listHooks, removeHook } from '../../../src/tools/jshook/hook.js';
+import { createHook, getHookData, injectHook, removeHook } from '../../../src/tools/jshook/hook.js';
 import {
   checkBrowserHealth,
   deleteSessionState,
@@ -23,10 +23,8 @@ import {
   getPerformanceMetrics,
   listSessionStates,
   loadSessionState,
-  navigatePage as navigateJSHookPage,
   restoreSessionState,
   saveSessionState,
-  takeScreenshot,
   typeText,
   waitForElement,
 } from '../../../src/tools/jshook/page.js';
@@ -377,7 +375,6 @@ describe('jshook tools handlers', () => {
 
       await createHook.handler({ params: { type: 'fetch' } } as any, res as any, {} as any);
       await injectHook.handler({ params: { hookId: 'h1' } } as any, res as any, {} as any);
-      await listHooks.handler({ params: {} } as any, res as any, {} as any);
       await getHookData.handler({ params: { hookId: 'h1' } } as any, res as any, {} as any);
       await getHookData.handler({ params: {} } as any, res as any, {} as any);
       await getHookData.handler({ params: { hookId: 'h1', view: 'summary', maxRecords: 2 } } as any, res as any, {} as any);
@@ -385,11 +382,9 @@ describe('jshook tools handlers', () => {
       await removeHook.handler({ params: { hookId: 'h1' } } as any, res as any, {} as any);
       await removeHook.handler({ params: { hookId: 'missing' } } as any, res as any, {} as any);
 
-      await navigateJSHookPage.handler({ params: { url: 'https://a.com', timeout: 1000 } } as any, res as any, {} as any);
       await clickElement.handler({ params: { selector: '#x' } } as any, res as any, {} as any);
       await typeText.handler({ params: { selector: '#x', text: 'abc', delay: 10 } } as any, res as any, {} as any);
       await waitForElement.handler({ params: { selector: '#x', timeout: 100 } } as any, res as any, {} as any);
-      await takeScreenshot.handler({ params: { type: 'png', fullPage: true } } as any, res as any, {} as any);
       await getPerformanceMetrics.handler({ params: {} } as any, res as any, {} as any);
       await saveSessionState.handler({ params: { sessionId: 's1' } } as any, res as any, {} as any);
       await saveSessionState.handler({
@@ -487,7 +482,6 @@ describe('jshook tools handlers', () => {
       assert.ok(res.lines.some((line) => line.includes('Hook injected: h1')));
       assert.ok(res.lines.some((line) => line.includes('Element clicked.')));
       assert.ok(res.lines.some((line) => line.includes('User-Agent updated.')));
-      assert.ok(res.lines.some((line) => line.includes('Screenshot taken')));
       assert.ok(res.lines.some((line) => line.includes('"signatureChain"')));
       assert.ok(res.lines.some((line) => line.includes('"actionPlan"')));
       assert.ok(res.lines.some((line) => line.includes('"requestFingerprints"')));
