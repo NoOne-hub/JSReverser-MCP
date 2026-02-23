@@ -3,10 +3,12 @@ import {defineTool} from '../ToolDefinition.js';
 import {ToolCategory} from '../categories.js';
 import {getJSHookRuntime} from './runtime.js';
 import {readFile, writeFile} from 'node:fs/promises';
+import {createCipheriv, createDecipheriv, createHash, randomBytes} from 'node:crypto';
 
 type SessionSnapshot = {
   id: string;
   savedAt: string;
+  expiresAt: string;
   url: string;
   title: string;
   cookies: any[];
@@ -15,6 +17,84 @@ type SessionSnapshot = {
 };
 
 const sessionSnapshots = new Map<string, SessionSnapshot>();
+const sessionTtlMs = Math.max(60_000, Number(process.env.SESSION_STATE_TTL_MS ?? 30 * 60_000));
+const cleanupIntervalMs = Math.max(15_000, Number(process.env.SESSION_STATE_CLEANUP_INTERVAL_MS ?? 5 * 60_000));
+
+let cleanupInitialized = false;
+let cleanupTimer: ReturnType<typeof setInterval> | undefined;
+
+function cleanupExpiredSessions(now = Date.now()): number {
+  let removed = 0;
+  for (const [sessionId, snapshot] of sessionSnapshots.entries()) {
+    if (Date.parse(snapshot.expiresAt) <= now) {
+      sessionSnapshots.delete(sessionId);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
+function ensureCleanupLoop(): void {
+  if (cleanupInitialized) {
+    return;
+  }
+  cleanupInitialized = true;
+  cleanupTimer = setInterval(() => {
+    cleanupExpiredSessions();
+  }, cleanupIntervalMs);
+  cleanupTimer.unref?.();
+}
+
+function getEncryptionKey(): Buffer | undefined {
+  const configured = process.env.SESSION_STATE_ENCRYPTION_KEY;
+  if (!configured || configured.length === 0) {
+    return undefined;
+  }
+  return createHash('sha256').update(configured).digest();
+}
+
+function encryptText(plainText: string): {
+  encrypted: true;
+  algorithm: 'aes-256-gcm';
+  iv: string;
+  tag: string;
+  data: string;
+} {
+  const key = getEncryptionKey();
+  if (!key) {
+    throw new Error('SESSION_STATE_ENCRYPTION_KEY is required for encryption.');
+  }
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    encrypted: true,
+    algorithm: 'aes-256-gcm',
+    iv: iv.toString('base64'),
+    tag: tag.toString('base64'),
+    data: encrypted.toString('base64'),
+  };
+}
+
+function decryptText(payload: {
+  encrypted: true;
+  algorithm: 'aes-256-gcm';
+  iv: string;
+  tag: string;
+  data: string;
+}): string {
+  const key = getEncryptionKey();
+  if (!key) {
+    throw new Error('SESSION_STATE_ENCRYPTION_KEY is required for decryption.');
+  }
+  const iv = Buffer.from(payload.iv, 'base64');
+  const tag = Buffer.from(payload.tag, 'base64');
+  const encrypted = Buffer.from(payload.data, 'base64');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+}
 
 function normalizeSnapshot(snapshot: unknown, fallbackId?: string): SessionSnapshot {
   if (!snapshot || typeof snapshot !== 'object') {
@@ -27,6 +107,9 @@ function normalizeSnapshot(snapshot: unknown, fallbackId?: string): SessionSnaps
   return {
     id,
     savedAt: typeof raw.savedAt === 'string' && raw.savedAt.length > 0 ? raw.savedAt : new Date().toISOString(),
+    expiresAt: typeof raw.expiresAt === 'string' && raw.expiresAt.length > 0
+      ? raw.expiresAt
+      : new Date(Date.now() + sessionTtlMs).toISOString(),
     url: typeof raw.url === 'string' ? raw.url : '',
     title: typeof raw.title === 'string' ? raw.title : '',
     cookies: Array.isArray(raw.cookies) ? raw.cookies : [],
@@ -37,6 +120,7 @@ function normalizeSnapshot(snapshot: unknown, fallbackId?: string): SessionSnaps
 
 export const navigatePage = defineTool({
   name: 'navigate_page',
+  aliases: ['jshook_navigate_page'],
   description: 'Navigate current page to a URL.',
   annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
   schema: {
@@ -44,6 +128,8 @@ export const navigatePage = defineTool({
     timeout: zod.number().int().positive().optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const result = await runtime.pageController.navigate(request.params.url, {
       timeout: request.params.timeout,
@@ -60,6 +146,8 @@ export const clickElement = defineTool({
   annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
   schema: {selector: zod.string()},
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     await runtime.pageController.click(request.params.selector);
     response.appendResponseLine('Element clicked.');
@@ -76,6 +164,8 @@ export const typeText = defineTool({
     delay: zod.number().int().nonnegative().optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     await runtime.pageController.type(request.params.selector, request.params.text, {
       delay: request.params.delay,
@@ -93,6 +183,8 @@ export const waitForElement = defineTool({
     timeout: zod.number().int().positive().optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const result = await runtime.pageController.waitForSelector(request.params.selector, request.params.timeout);
     response.appendResponseLine('```json');
@@ -111,6 +203,8 @@ export const takeScreenshot = defineTool({
     type: zod.enum(['png', 'jpeg']).optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const buffer = await runtime.pageController.screenshot({
       path: request.params.path,
@@ -127,6 +221,8 @@ export const getPerformanceMetrics = defineTool({
   annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: true},
   schema: {},
   handler: async (_request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const metrics = await runtime.pageController.getPerformanceMetrics();
     response.appendResponseLine('```json');
@@ -146,6 +242,8 @@ export const saveSessionState = defineTool({
     includeSessionStorage: zod.boolean().optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const page = await runtime.pageController.getPage();
     const sessionId = request.params.sessionId ?? `session_${Date.now()}`;
@@ -156,6 +254,7 @@ export const saveSessionState = defineTool({
     const snapshot: SessionSnapshot = {
       id: sessionId,
       savedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
       url: page.url(),
       title: await page.title(),
       cookies: includeCookies ? await runtime.pageController.getCookies() : [],
@@ -190,6 +289,8 @@ export const restoreSessionState = defineTool({
     clearStorageBeforeRestore: zod.boolean().optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const snapshot = sessionSnapshots.get(request.params.sessionId);
     if (!snapshot) {
@@ -237,6 +338,8 @@ export const listSessionStates = defineTool({
   annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: true},
   schema: {},
   handler: async (_request, response) => {
+    ensureCleanupLoop();
+    const removed = cleanupExpiredSessions();
     const sessions = Array.from(sessionSnapshots.values()).map((snapshot) => ({
       sessionId: snapshot.id,
       savedAt: snapshot.savedAt,
@@ -247,10 +350,11 @@ export const listSessionStates = defineTool({
         localStorage: Object.keys(snapshot.localStorage).length,
         sessionStorage: Object.keys(snapshot.sessionStorage).length,
       },
+      expiresAt: snapshot.expiresAt,
     }));
 
     response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify({total: sessions.length, sessions}, null, 2));
+    response.appendResponseLine(JSON.stringify({total: sessions.length, cleanedExpired: removed, sessions}, null, 2));
     response.appendResponseLine('```');
   },
 });
@@ -263,6 +367,8 @@ export const deleteSessionState = defineTool({
     sessionId: zod.string(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const deleted = sessionSnapshots.delete(request.params.sessionId);
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify({
@@ -282,15 +388,22 @@ export const dumpSessionState = defineTool({
     sessionId: zod.string(),
     path: zod.string().optional(),
     pretty: zod.boolean().optional(),
+    encrypt: zod.boolean().optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const snapshot = sessionSnapshots.get(request.params.sessionId);
     if (!snapshot) {
       throw new Error(`Session snapshot not found: ${request.params.sessionId}`);
     }
 
     const pretty = request.params.pretty !== false;
-    const json = JSON.stringify(snapshot, null, pretty ? 2 : 0);
+    const rawJson = JSON.stringify(snapshot, null, pretty ? 2 : 0);
+    const encryptedPayload = request.params.encrypt === true ? encryptText(rawJson) : null;
+    const json = encryptedPayload
+      ? JSON.stringify(encryptedPayload, null, pretty ? 2 : 0)
+      : rawJson;
     if (request.params.path) {
       await writeFile(request.params.path, json, 'utf8');
     }
@@ -300,6 +413,7 @@ export const dumpSessionState = defineTool({
       sessionId: snapshot.id,
       path: request.params.path ?? null,
       bytes: Buffer.byteLength(json, 'utf8'),
+      encrypted: request.params.encrypt === true,
       snapshot,
     }, null, 2));
     response.appendResponseLine('```');
@@ -317,6 +431,8 @@ export const loadSessionState = defineTool({
     overwrite: zod.boolean().optional(),
   },
   handler: async (request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const rawJson = request.params.path
       ? await readFile(request.params.path, 'utf8')
       : request.params.snapshotJson;
@@ -330,7 +446,13 @@ export const loadSessionState = defineTool({
     } catch {
       throw new Error('Invalid snapshot JSON content.');
     }
-    const snapshot = normalizeSnapshot(parsed, request.params.sessionId);
+    const normalizedRaw = parsed
+      && typeof parsed === 'object'
+      && (parsed as any).encrypted === true
+      && (parsed as any).algorithm === 'aes-256-gcm'
+      ? JSON.parse(decryptText(parsed as any))
+      : parsed;
+    const snapshot = normalizeSnapshot(normalizedRaw, request.params.sessionId);
     const targetId = request.params.sessionId ?? snapshot.id;
     const existing = sessionSnapshots.has(targetId);
     if (existing && request.params.overwrite !== true) {
@@ -361,6 +483,8 @@ export const checkBrowserHealth = defineTool({
   annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: true},
   schema: {},
   handler: async (_request, response) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const issues: Array<{code: string; message: string}> = [];
     const browser = runtime.browserManager.getBrowser();

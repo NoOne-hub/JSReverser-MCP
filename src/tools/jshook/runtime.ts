@@ -1,4 +1,3 @@
-/* c8 ignore start */
 import {BrowserModeManager} from '../../modules/browser/BrowserModeManager.js';
 import {CodeCollector} from '../../modules/collector/CodeCollector.js';
 import {DOMInspector} from '../../modules/collector/DOMInspector.js';
@@ -37,7 +36,7 @@ export interface JSHookRuntime {
 function toCollectorConfig(): PuppeteerConfig {
   const browser = getBrowserConfig();
   return {
-    headless: browser.headless ?? true,
+    headless: browser.headless!,
     timeout: 30000,
     remoteDebuggingUrl: browser.remoteDebuggingUrl,
     useStealthScripts: browser.useStealthScripts,
@@ -85,4 +84,3 @@ export function getJSHookRuntime(): JSHookRuntime {
 
   return runtime;
 }
-/* c8 ignore stop */

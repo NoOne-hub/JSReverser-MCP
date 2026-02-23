@@ -3,11 +3,17 @@ import {defineTool} from '../ToolDefinition.js';
 import {ToolCategory} from '../categories.js';
 import {getJSHookRuntime} from './runtime.js';
 
-function normalizeRecordForDedupe(record: Record<string, unknown>): {key: string; summary: Record<string, unknown>} {
-  const target = typeof record.target === 'string' ? record.target : 'unknown';
-  const event = typeof record.event === 'string' ? record.event : '';
-  const method = typeof record.method === 'string' ? record.method.toUpperCase() : '';
-  const url = typeof record.url === 'string' ? record.url : '';
+type NormalizedHookRecord = {
+  target: string;
+  event: string;
+  method: string;
+  url: string;
+  status?: number;
+  bodySnippet: string;
+  timestamp?: number;
+};
+
+function normalizeHookRecord(record: Record<string, unknown>): NormalizedHookRecord {
   const body = typeof record.body === 'string'
     ? record.body
     : typeof record.requestBody === 'string'
@@ -15,22 +21,23 @@ function normalizeRecordForDedupe(record: Record<string, unknown>): {key: string
       : typeof record.data === 'string'
         ? record.data
         : '';
-  const key = [target, event, method, url, body.slice(0, 256)].join('::');
   return {
-    key,
-    summary: {
-      target,
-      event,
-      method,
-      url,
-      status: typeof record.status === 'number' ? record.status : undefined,
-      bodySnippet: body.slice(0, 200),
-      timestamp: typeof record.timestamp === 'number' ? record.timestamp : undefined,
-    },
+    target: typeof record.target === 'string' ? record.target : 'unknown',
+    event: typeof record.event === 'string' ? record.event : '',
+    method: typeof record.method === 'string' ? record.method.toUpperCase() : '',
+    url: typeof record.url === 'string' ? record.url : '',
+    status: typeof record.status === 'number' ? record.status : undefined,
+    bodySnippet: body.slice(0, 200),
+    timestamp: typeof record.timestamp === 'number' ? record.timestamp : undefined,
   };
 }
 
-function summarizeHookRecords(records: Array<Record<string, unknown>>, maxRecords: number): {
+function normalizeRecordForDedupe(record: NormalizedHookRecord): {key: string; summary: NormalizedHookRecord} {
+  const key = [record.target, record.event, record.method, record.url, record.bodySnippet.slice(0, 256)].join('::');
+  return {key, summary: record};
+}
+
+function summarizeHookRecords(records: Array<NormalizedHookRecord>, maxRecords: number): {
   total: number;
   unique: number;
   dropped: number;
@@ -98,6 +105,7 @@ export const injectHook = defineTool({
 
 export const listHooks = defineTool({
   name: 'list_hooks',
+  aliases: ['jshook_list_hooks'],
   description: 'List all created hooks and statuses.',
   annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
   schema: {},
@@ -125,14 +133,16 @@ export const getHookData = defineTool({
     const maxRecords = request.params.maxRecords ?? 100;
     let data: unknown;
     if (request.params.hookId) {
-      const records = runtime.hookManager.getRecords(request.params.hookId) as Array<Record<string, unknown>>;
+      const records = (runtime.hookManager.getRecords(request.params.hookId) as Array<Record<string, unknown>>)
+        .map(normalizeHookRecord);
       data = view === 'summary'
         ? summarizeHookRecords(records, maxRecords)
         : records;
     } else if (view === 'summary') {
       const hooks = runtime.hookManager.getAllHooks();
       data = hooks.map((hook) => {
-        const records = runtime.hookManager.getRecords(hook.hookId) as Array<Record<string, unknown>>;
+        const records = (runtime.hookManager.getRecords(hook.hookId) as Array<Record<string, unknown>>)
+          .map(normalizeHookRecord);
         return {
           hookId: hook.hookId,
           ...summarizeHookRecords(records, maxRecords),

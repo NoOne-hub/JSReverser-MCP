@@ -177,7 +177,6 @@ export class AnthropicProvider implements AIProvider {
    * @returns Formatted error
    */
   private handleError(error: unknown): Error {
-    /* c8 ignore next */
     if (error instanceof Anthropic.APIError) {
       const message = `Anthropic API error (${error.status}): ${error.message}`;
       const formattedError = new Error(message);

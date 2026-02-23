@@ -406,16 +406,50 @@ describe('jshook tools handlers', () => {
       await dumpSessionState.handler({ params: { sessionId: 's1', pretty: false } } as any, res as any, {} as any);
       const tempDir = await mkdtemp(join(tmpdir(), 'js-reverse-mcp-'));
       const snapshotPath = join(tempDir, 'session-s1.json');
+      const encryptedSnapshotPath = join(tempDir, 'session-s1.encrypted.json');
+      const originalEncryptionKey = process.env.SESSION_STATE_ENCRYPTION_KEY;
       try {
         await dumpSessionState.handler({ params: { sessionId: 's1', path: snapshotPath } } as any, res as any, {} as any);
         const snapshotJson = await readFile(snapshotPath, 'utf8');
+        process.env.SESSION_STATE_ENCRYPTION_KEY = 'unit-test-session-key';
+        await dumpSessionState.handler({
+          params: { sessionId: 's1', path: encryptedSnapshotPath, encrypt: true },
+        } as any, res as any, {} as any);
+        await loadSessionState.handler({
+          params: { path: encryptedSnapshotPath, sessionId: 's1-encrypted', overwrite: true },
+        } as any, res as any, {} as any);
+        process.env.SESSION_STATE_ENCRYPTION_KEY = '';
+        await assert.rejects(async () => {
+          await dumpSessionState.handler({
+            params: { sessionId: 's1', path: encryptedSnapshotPath, encrypt: true },
+          } as any, res as any, {} as any);
+        });
+        await assert.rejects(async () => {
+          await loadSessionState.handler({
+            params: { path: encryptedSnapshotPath, sessionId: 's1-encrypted-2', overwrite: true },
+          } as any, res as any, {} as any);
+        });
         await deleteSessionState.handler({ params: { sessionId: 's1' } } as any, res as any, {} as any);
         await loadSessionState.handler({ params: { snapshotJson, sessionId: 's1' } } as any, res as any, {} as any);
         await assert.rejects(async () => {
           await loadSessionState.handler({ params: { snapshotJson, sessionId: 's1' } } as any, res as any, {} as any);
         });
-      await loadSessionState.handler({ params: { path: snapshotPath, sessionId: 's1', overwrite: true } } as any, res as any, {} as any);
+        await loadSessionState.handler({ params: { path: snapshotPath, sessionId: 's1', overwrite: true } } as any, res as any, {} as any);
+
+        const expiredSnapshotJson = JSON.stringify({
+          id: 'expired-one',
+          savedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() - 5_000).toISOString(),
+          url: 'https://expired.example.com',
+          title: 'expired',
+          cookies: [],
+          localStorage: {},
+          sessionStorage: {},
+        });
+        await loadSessionState.handler({ params: { snapshotJson: expiredSnapshotJson, overwrite: true } } as any, res as any, {} as any);
+        await listSessionStates.handler({ params: {} } as any, res as any, {} as any);
       } finally {
+        process.env.SESSION_STATE_ENCRYPTION_KEY = originalEncryptionKey;
         await rm(tempDir, {recursive: true, force: true});
       }
       await assert.rejects(async () => {
@@ -464,6 +498,9 @@ describe('jshook tools handlers', () => {
       assert.ok(res.lines.some((line) => line.includes('"unique"')));
       assert.ok(res.lines.some((line) => line.includes('"overwritten"')));
       assert.ok(res.lines.some((line) => line.includes('"remaining"')));
+      assert.ok(res.lines.some((line) => line.includes('"bodySnippet"')));
+      assert.ok(res.lines.some((line) => line.includes('"encrypted": true')));
+      assert.ok(res.lines.some((line) => line.includes('"cleanedExpired":')));
       assert.ok(res.lines.some((line) => line.includes('hook-data-export')));
       assert.ok(res.lines.some((line) => line.includes('"method": "WS"')));
       assert.ok(res.lines.some((line) => line.includes('"type": "function"')));

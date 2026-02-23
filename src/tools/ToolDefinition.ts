@@ -19,6 +19,7 @@ export interface ToolDefinition<
   Schema extends zod.ZodRawShape = zod.ZodRawShape,
 > {
   name: string;
+  aliases?: string[];
   description: string;
   annotations: {
     title?: string;
