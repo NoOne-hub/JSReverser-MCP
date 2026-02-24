@@ -13,6 +13,7 @@ import type { AIProvider, AIMessage, AIResponse, ChatOptions } from './AIService
  */
 export interface AnthropicConfig {
   apiKey: string;
+  baseURL?: string;
   model?: string;
 }
 
@@ -34,6 +35,7 @@ export class AnthropicProvider implements AIProvider {
 
     this.client = new Anthropic({
       apiKey: config.apiKey,
+      ...(config.baseURL && { baseURL: config.baseURL }),
     });
 
     this.defaultModel = config.model || 'claude-3-5-sonnet-20241022';

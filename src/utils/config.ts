@@ -34,6 +34,7 @@ export interface AIConfig {
   };
   anthropic?: {
     apiKey: string;
+    baseURL?: string;
     model?: string;
   };
   gemini?: {
@@ -101,6 +102,7 @@ export function getAIConfig(): AIConfig | undefined {
   if (process.env.ANTHROPIC_API_KEY) {
     config.anthropic = {
       apiKey: process.env.ANTHROPIC_API_KEY,
+      baseURL: process.env.ANTHROPIC_BASE_URL,
       model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
     };
   }
@@ -247,6 +249,7 @@ export function createAIService(config?: AIConfig): AIService | undefined {
         }
         const anthropicProvider = new AnthropicProvider({
           apiKey: aiConfig.anthropic.apiKey,
+          baseURL: aiConfig.anthropic.baseURL,
           model: aiConfig.anthropic.model,
         });
         return new AIService(anthropicProvider);

@@ -194,6 +194,7 @@ OPENAI_MODEL=gpt-4o
 
 # Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_BASE_URL=https://api.anthropic.com  # optional, for proxy/custom endpoint
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 
 # Gemini
