@@ -527,7 +527,7 @@ export const searchInSources = defineTool({
 export const setBreakpoint = defineTool({
   name: 'set_breakpoint',
   description:
-    'Sets a breakpoint in a JavaScript file at the specified line. The breakpoint will trigger when the code executes.',
+    'Sets a breakpoint in a JavaScript file at the specified line. The breakpoint will trigger when the code executes. NOTE: Prefer hook_function or create_hook for monitoring function calls — breakpoints require pause/resume coordination and are error-prone in automated workflows. Use breakpoints only when you need to inspect local variables inside a function.',
   annotations: {
     title: 'Set Breakpoint',
     category: ToolCategory.REVERSE_ENGINEERING,
@@ -1225,7 +1225,7 @@ export const evaluateOnCallframe = defineTool({
 export const setBreakpointOnText = defineTool({
   name: 'set_breakpoint_on_text',
   description:
-    'Sets a breakpoint on specific code (function name, statement, etc.) by searching for it and automatically determining the exact position. Works with both normal and minified files.',
+    'Sets a breakpoint on specific code (function name, statement, etc.) by searching for it and automatically determining the exact position. Works with both normal and minified files. NOTE: Prefer hook_function for monitoring function calls — it captures args/results without pausing execution. Use this only when you need to inspect local variables at a specific code location.',
   annotations: {
     title: 'Set Breakpoint on Text',
     category: ToolCategory.REVERSE_ENGINEERING,
@@ -1380,7 +1380,7 @@ export const setBreakpointOnText = defineTool({
 export const hookFunction = defineTool({
   name: 'hook_function',
   description:
-    'Hooks a JavaScript function to log its calls, arguments, and return values. Useful for understanding how functions are used without setting breakpoints.',
+    'RECOMMENDED for reverse engineering: Hooks a JavaScript function to log its calls, arguments, and return values without pausing execution. More reliable than breakpoints for automated workflows. Use this as the default approach for monitoring functions.',
   annotations: {
     title: 'Hook Function',
     category: ToolCategory.REVERSE_ENGINEERING,

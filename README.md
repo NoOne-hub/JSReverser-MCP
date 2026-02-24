@@ -229,6 +229,38 @@ DEBUG=mcp:*
 
 ## 推荐逆向工作流
 
+### Hook 优先策略
+
+> **重要：优先使用 Hook 工具而非断点工具。**
+>
+> 本项目提供两套动态分析机制：**Hook（注入式）** 和 **Breakpoint（断点式）**。
+> 对于 AI 客户端，Hook 方式更可靠，因为断点需要暂停/恢复执行的多步协调，容易因时序问题导致超时或状态异常。
+
+| 对比项 | Hook 方式 | Breakpoint 方式 |
+|--------|----------|----------------|
+| **工具** | `create_hook` + `inject_hook` + `get_hook_data`，或 `hook_function` | `set_breakpoint` / `set_breakpoint_on_text` + `resume` + `evaluate_on_callframe` |
+| **原理** | 注入 JS 包装原函数，持续记录调用 | Chrome Debugger 暂停执行，逐步检查 |
+| **对执行的影响** | 不暂停，页面正常运行 | 暂停 JS 执行，需要手动 resume |
+| **适合场景** | 监控函数出入参、采样请求、追踪调用链 | 需要查看局部变量、单步调试特定逻辑 |
+| **AI 友好度** | ⭐⭐⭐ 高 — 单次注入，异步采集 | ⭐ 低 — 多步协调，时序敏感 |
+
+**推荐决策路径：**
+
+```
+需要观察函数调用/参数/返回值？
+  → hook_function 或 create_hook + inject_hook
+
+需要拦截/监控网络请求？
+  → create_hook(type: "fetch"/"xhr") + inject_hook
+
+需要查看函数内部局部变量？
+  → 先尝试 hook_function(logArgs + logResult + logStack)
+  → 仍不够时才用 set_breakpoint + evaluate_on_callframe
+
+断点多次失败（超时/状态异常）？
+  → 立即切换为 hook 方式
+```
+
 ### 工作流 A：快速定位签名逻辑
 
 1. `new_page` 打开目标站点
@@ -237,12 +269,13 @@ DEBUG=mcp:*
 4. 对高优先级函数调用 `search_in_scripts` + `understand_code`
 5. 对可疑代码执行 `deobfuscate_code`
 
-### 工作流 B：请求参数动态追踪
+### 工作流 B：请求参数动态追踪（Hook 优先）
 
-1. `create_hook` + `inject_hook`（`fetch/xhr/websocket`）
-2. 在页面触发下单/登录等关键动作
-3. `get_hook_data` 拉取记录并对比参数变化
-4. 必要时 `break_on_xhr` + `get_request_initiator` 看调用栈
+1. `create_hook(type: "fetch")` + `inject_hook` 注入网络请求监控
+2. 在页面触发下单/登录等关键动作（`click_element`）
+3. `get_hook_data(view: "summary")` 拉取记录并对比参数变化
+4. 对目标函数 `hook_function(target: "window.sign", logStack: true)` 追踪调用链
+5. 仍需深入时才用 `break_on_xhr` + `get_request_initiator` 看完整调用栈
 
 ### 工作流 C：风险评估与报告
 

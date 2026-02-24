@@ -70,7 +70,7 @@ function summarizeHookRecords(records: Array<NormalizedHookRecord>, maxRecords: 
 
 export const createHook = defineTool({
   name: 'create_hook',
-  description: 'Create hook script for function/fetch/xhr/property/cookie/websocket/eval/timer.',
+  description: 'RECOMMENDED: Create hook script for function/fetch/xhr/property/cookie/websocket/eval/timer. Hooks run without pausing page execution and are the preferred approach over breakpoints for monitoring and interception.',
   annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: false},
   schema: {
     type: zod.string(),
