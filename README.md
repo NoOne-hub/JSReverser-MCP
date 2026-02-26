@@ -174,6 +174,31 @@ args = [
 
 客户端接入说明统一维护在本 README，不再单独拆分到 `docs`。
 
+## 安装逆向 Skill（可选）
+
+本仓库内置了一个可复用技能：
+
+- `skills/mcp-js-reverse-playbook`
+
+用于规范化执行前端 JS 逆向流程（Hook 优先、补环境、VMP 插桩、AST 去混淆、证据化输出）。
+
+### 本地安装（在仓库目录）
+
+```bash
+npx skills add ./skills --skill mcp-js-reverse-playbook --copy -y
+```
+
+### 从 GitHub 安装
+
+```bash
+npx skills add NoOne-hub/JSReverser-MCP --skill mcp-js-reverse-playbook --copy -y
+```
+
+说明：
+
+- 建议使用 `--copy`，避免符号链接在不同环境下产生空目录问题。
+- 安装后重启对应 AI 客户端，使新 Skill 生效。
+
 ## 环境变量配置
 
 复制示例配置：
