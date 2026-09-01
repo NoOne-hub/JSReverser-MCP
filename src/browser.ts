@@ -21,11 +21,21 @@ import type {
   Browser,
   ChromeReleaseChannel,
   LaunchOptions,
+  Page,
   Target,
 } from './third_party/index.js';
 import {puppeteer} from './third_party/index.js';
 
 let browserManager: BrowserManager | undefined;
+
+/**
+ * 获取主浏览器管理器单例（未初始化返回 undefined——CLI 命令等不启动浏览器的
+ * 场景调用方需自行判空）。2026-09-02 双栈合并：采集栈（CodeCollector）与主栈
+ * 共用此单例，消除 --isolated 下第二浏览器实例（状态分裂根因）。
+ */
+export function getBrowserManager(): BrowserManager | undefined {
+  return browserManager;
+}
 
 function makeTargetFilter() {
   const ignoredPrefixes = new Set([
@@ -251,6 +261,12 @@ export class BrowserManager {
   private stealthInjected = false;
   private crashCheckInterval?: NodeJS.Timeout;
   private isRestarting = false;
+  private currentPage: Page | null = null;
+  private sessionData: {
+    cookies?: any[];
+    localStorage?: Record<string, string>;
+    sessionStorage?: Record<string, string>;
+  } = {};
 
   private constructor(config: BrowserManagerConfig) {
     const remoteDebuggingUrl = config.remoteDebuggingUrl;
@@ -618,8 +634,7 @@ export class BrowserManager {
   /**
    * Get list of available stealth features
    */
-  getStealthFeatures(): string[] {
-    return [
+  getStealthFeatures(): string[] {    return [
       'hideWebDriver',
       'mockChrome',
       'setUserAgent',
@@ -637,6 +652,97 @@ export class BrowserManager {
       'performanceNoise',
       'overrideScreen',
     ];
+  }
+
+  /**
+   * 同步获取当前连接中的浏览器实例（不触发启动；采集栈 getStatus 等只读探测用）。
+   */
+  getConnectedBrowser(): Browser | undefined {
+    return this.browser;
+  }
+
+  getCurrentPage(): Page | null {
+    return this.currentPage;
+  }
+
+  setCurrentPage(page: Page | null): void {
+    this.currentPage = page;
+  }
+
+  /**
+   * 创建新页面（含反检测注入与会话恢复）——原 BrowserModeManager.newPage 能力并入主栈
+   * （2026-09-02 双栈合并：采集栈与主栈共用同一浏览器实例，消除 --isolated 下
+   * 第二浏览器导致的状态分裂）。stealth 注入由 injectStealth 的 targetcreated
+   * 监听统一覆盖新页，这里只做基础反检测 + 会话恢复。
+   */
+  async newPage(): Promise<Page> {
+    if (!this.browser) {
+      await this.ensureBrowser();
+    }
+
+    const page = await this.browser!.newPage();
+    this.currentPage = page;
+    page.on('close', () => {
+      if (this.currentPage === page) {
+        this.currentPage = null;
+      }
+    });
+
+    await page.setCacheEnabled(true);
+    await page.setBypassCSP(true);
+    await page.setJavaScriptEnabled(true);
+
+    if (this.sessionData.cookies?.length) {
+      await page.setCookie(...this.sessionData.cookies);
+    }
+
+    await this.injectAntiDetectionScripts(page);
+    return page;
+  }
+
+  private async injectAntiDetectionScripts(page: Page): Promise<void> {
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+
+      (window as any).chrome = {
+        runtime: {
+          connect: () => undefined,
+          sendMessage: () => undefined,
+          onMessage: {
+            addListener: () => undefined,
+            removeListener: () => undefined,
+          },
+        },
+      };
+
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [
+          {
+            0: {
+              type: 'application/pdf',
+              suffixes: 'pdf',
+              description: 'Portable Document Format',
+            },
+            description: 'Portable Document Format',
+            filename: 'internal-pdf-viewer',
+            length: 1,
+            name: 'Chrome PDF Plugin',
+          },
+        ],
+      });
+
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters: any) =>
+        parameters.name === 'notifications'
+          ? Promise.resolve({
+              state: (Notification as any).permission,
+            } as PermissionStatus)
+          : originalQuery(parameters);
+
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['zh-CN', 'zh', 'en-US', 'en'],
+      });
+    });
   }
 
   /**

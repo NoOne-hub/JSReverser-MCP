@@ -15,10 +15,10 @@ interface BrowserLike {
 }
 
 interface BrowserManagerLike {
-  getBrowser(): BrowserLike | null;
+  getConnectedBrowser(): BrowserLike | null;
   getCurrentPage(): object | null;
   newPage(): Promise<object>;
-  launch(): Promise<BrowserLike>;
+  ensureBrowser(): Promise<BrowserLike>;
   close(): Promise<void>;
 }
 
@@ -62,10 +62,10 @@ function makeCollector(): CodeCollectorHarness {
     timeout: 2000,
   } as PuppeteerConfig;
   const browserManager = {
-    getBrowser: () => null,
+    getConnectedBrowser: () => null,
     getCurrentPage: () => null,
     newPage: async () => ({}),
-    launch: async () => ({isConnected: () => true, on: () => undefined}),
+    ensureBrowser: async () => ({isConnected: () => true, on: () => undefined}),
     close: async () => undefined,
   } satisfies BrowserManagerLike;
   return new CodeCollector(

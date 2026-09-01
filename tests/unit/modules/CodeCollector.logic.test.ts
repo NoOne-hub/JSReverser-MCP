@@ -40,10 +40,10 @@ interface BrowserHarness {
 }
 
 interface BrowserManagerHarness {
-  getBrowser(): BrowserHarness | null;
+  getConnectedBrowser(): BrowserHarness | null;
   getCurrentPage(): unknown;
   newPage(): Promise<unknown>;
-  launch(): Promise<BrowserHarness>;
+  ensureBrowser(): Promise<BrowserHarness>;
   close(): Promise<void>;
 }
 
@@ -170,10 +170,10 @@ function makeCollector(
   browserManagerOverrides: Partial<BrowserManagerHarness> = {},
 ): CodeCollectorHarness {
   const browserManager: BrowserManagerHarness = {
-    getBrowser: () => null,
+    getConnectedBrowser: () => null,
     getCurrentPage: () => null,
     newPage: async () => ({}),
-    launch: async () => ({
+    ensureBrowser: async () => ({
       isConnected: () => true,
       on: () => undefined,
       pages: async () => [],
@@ -515,7 +515,7 @@ describe('CodeCollector logic', () => {
       pages: async () => [{}, {}],
       version: async () => 'Chrome/131',
     };
-    collector.browserManager.getBrowser = () =>
+    collector.browserManager.getConnectedBrowser = () =>
       managerBrowser as BrowserHarness;
 
     const running = await collector.getStatus();
@@ -783,7 +783,7 @@ describe('CodeCollector logic', () => {
       goto: async () => undefined,
     };
     const collector = makeCollector({
-      launch: async () => browser,
+      ensureBrowser: async () => browser,
       close: async () => {
         closeCalls += 1;
       },
@@ -816,7 +816,10 @@ describe('CodeCollector logic', () => {
 
     collector.browser = browser;
     await collector.close();
-    assert.strictEqual(closeCalls, 1);
+    // 双栈合并（2026-09-02）：CodeCollector.close 只清采集侧状态，不再关闭主浏览器
+    // （生命周期归主栈 BrowserManager）——browserManager.close 不应被调用
+    assert.strictEqual(closeCalls, 0);
+    assert.strictEqual(collector.browser, null);
   });
 
   it('collect supports smart summary and compression metadata branches', async () => {

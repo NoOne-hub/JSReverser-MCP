@@ -487,7 +487,6 @@ describe('tools extended coverage', () => {
     const first = getJSHookRuntime();
     const second = getJSHookRuntime();
 
-    assert.ok(first.browserManager);
     assert.ok(first.collector);
     assert.ok(first.hookManager);
     assert.strictEqual(first, second);

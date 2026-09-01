@@ -226,4 +226,72 @@ describe('BrowserManager mocked', () => {
     await manager.restart();
     assert.strictEqual(restarted, 2);
   });
+
+  it('newPage restores cookies, injects anti-detection and tracks currentPage', async () => {
+    // 2026-09-02 双栈合并：原 BrowserModeManager.newPage 能力并入主栈
+    const manager = BrowserManager.getInstance({
+      headless: true,
+      isolated: true,
+    });
+
+    type CloseHandler = () => void;
+    let closeHandler: CloseHandler | null = null;
+    let evaluateCalls = 0;
+    let setCookieArgs: unknown[] = [];
+    const page = {
+      on: (event: string, handler: CloseHandler) => {
+        if (event === 'close') {
+          closeHandler = handler;
+        }
+      },
+      setCacheEnabled: async () => undefined,
+      setBypassCSP: async () => undefined,
+      setJavaScriptEnabled: async () => undefined,
+      setCookie: async (...args: unknown[]) => {
+        setCookieArgs = args;
+        return args.length;
+      },
+      evaluateOnNewDocument: async () => {
+        evaluateCalls += 1;
+      },
+    };
+    (manager as unknown as BrowserManagerLike).browser = {
+      connected: true,
+      newPage: async () => page,
+      on: () => undefined,
+      close: async () => undefined,
+    } as unknown as BrowserLike;
+    (manager as unknown as {sessionData: {cookies: unknown[]}}).sessionData = {
+      cookies: [{name: 'sid', value: '1'}],
+    };
+
+    const created = await manager.newPage();
+    assert.strictEqual(created, page);
+    assert.strictEqual(manager.getCurrentPage(), page);
+    assert.strictEqual(evaluateCalls, 1);
+    assert.strictEqual(setCookieArgs.length, 1);
+
+    assert.ok(closeHandler);
+    (closeHandler as CloseHandler)();
+    assert.strictEqual(manager.getCurrentPage(), null);
+  });
+
+  it('exposes synchronous connection/page accessors for the collector stack', () => {
+    const manager = BrowserManager.getInstance({
+      headless: true,
+      isolated: true,
+    });
+
+    assert.strictEqual(manager.getConnectedBrowser(), undefined);
+    assert.strictEqual(manager.getCurrentPage(), null);
+
+    const browser = {connected: true, on: () => undefined};
+    (manager as unknown as BrowserManagerLike).browser =
+      browser as unknown as BrowserLike;
+    assert.strictEqual(manager.getConnectedBrowser(), browser);
+
+    const page = {on: () => undefined};
+    manager.setCurrentPage(page as never);
+    assert.strictEqual(manager.getCurrentPage(), page);
+  });
 });

@@ -5,7 +5,10 @@
  */
 import {AISummarizer} from '../modules/analyzer/AISummarizer.js';
 import {CodeAnalyzer} from '../modules/analyzer/CodeAnalyzer.js';
-import {BrowserModeManager} from '../modules/browser/BrowserModeManager.js';
+import {
+  getBrowserManager,
+  type BrowserManager,
+} from '../browser.js';
 import {CodeCollector} from '../modules/collector/CodeCollector.js';
 import {DOMInspector} from '../modules/collector/DOMInspector.js';
 import {PageController} from '../modules/collector/PageController.js';
@@ -28,7 +31,8 @@ import {UnifiedCacheManager} from '../utils/UnifiedCacheManager.js';
 let runtime: JSHookRuntime | undefined;
 
 export interface JSHookRuntime {
-  browserManager: BrowserModeManager;
+  /** 主浏览器管理器（主栈单例；CLI 命令等未启动浏览器的场景为 undefined，使用方判空） */
+  browserManager: BrowserManager | undefined;
   collector: CodeCollector;
   domInspector: DOMInspector;
   pageController: PageController;
@@ -59,14 +63,10 @@ export function getJSHookRuntime(): JSHookRuntime {
     return runtime;
   }
 
-  const browserManager = new BrowserModeManager({
-    remoteDebuggingUrl: process.env.REMOTE_DEBUGGING_URL,
-    remoteDebuggingPort: process.env.REMOTE_DEBUGGING_PORT
-      ? Number(process.env.REMOTE_DEBUGGING_PORT)
-      : 9222,
-    useStealthScripts: process.env.USE_STEALTH_SCRIPTS !== 'false',
-    autoLaunch: true,
-  });
+  // 双栈合并（2026-09-02）：采集栈直接复用主栈 BrowserManager 单例——
+  // 不再自启/自连第二浏览器，消除 --isolated 状态分裂。MCP 主模式在
+  // getContext()（getBrowserManager 已初始化）之后才首次触达 runtime。
+  const browserManager = getBrowserManager();
 
   const collector = new CodeCollector(toCollectorConfig(), browserManager);
   const domInspector = new DOMInspector(collector);
@@ -102,11 +102,11 @@ export function getJSHookRuntime(): JSHookRuntime {
     },
     syncPageContext: page => {
       collector.setPageResolver(() => page);
-      browserManager.setCurrentPage(page);
+      browserManager?.setCurrentPage(page);
     },
     clearPageContext: () => {
       collector.setPageResolver(undefined);
-      browserManager.setCurrentPage(null);
+      browserManager?.setCurrentPage(null);
     },
   };
 

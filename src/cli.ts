@@ -104,10 +104,10 @@ export const cliOptions = {
   },
   toolProfile: {
     type: 'string',
-    choices: ['kernel', 'compact', 'full'] as const,
+    choices: ['kernel', 'compact', 'research', 'full'] as const,
     default: 'kernel',
     description:
-      'Choose which MCP tools are exposed at startup. kernel keeps automated reverse workflows visible; compact adds broader workflow controls; full exposes every low-level debugging tool.',
+      'Choose which MCP tools are exposed at startup. kernel keeps automated reverse workflows visible; compact adds broader workflow controls; research exposes the JS-reverse deep-dive set (observed agent tool usage, no debuggers/deobfuscators/WS deep analysis); full exposes every low-level debugging tool.',
   },
   traceOutput: {
     type: 'string',
@@ -390,6 +390,17 @@ export const cliOptions = {
     description:
       'If specified, creates a temporary user-data-dir that is automatically cleaned up after the browser is closed.',
     default: false,
+  },
+  toolTimeoutMs: {
+    type: 'number',
+    default: 300000,
+    description:
+      'Per-tool execution timeout in milliseconds (0 = no timeout). ' +
+      'ToolExecutionScheduler.withTimeout exists but the main dispatcher never passed ' +
+      'a value, so a hanging CDP/browser tool (e.g. search_in_sources after heavy ' +
+      'evaluate_script sessions) could block the whole session forever (2026-09-01). ' +
+      'Default 300000 turns pathological hangs into visible errors the agent can ' +
+      'recover from; raise it for legitimately long tools.',
   },
   channel: {
     type: 'string',

@@ -147,7 +147,7 @@ interface RuntimeHarness {
     evaluate: RuntimeMethod;
   };
   browserManager: {
-    getBrowser: RuntimeMethod;
+    getConnectedBrowser: RuntimeMethod;
   };
 }
 
@@ -183,6 +183,11 @@ function makeResponse(): ToolResponseHarness {
 describe('jshook tools handlers', () => {
   it('covers analyzer/collector/dom/hook/page/stealth handlers', async () => {
     const runtime = getJSHookRuntime() as unknown as RuntimeHarness;
+    // 双栈合并（2026-09-02）：未初始化主浏览器时 browserManager 为 undefined——
+    // 测试补 stub（模拟有 manager 但浏览器未连接）
+    (runtime as {browserManager?: unknown}).browserManager = {
+      getConnectedBrowser: () => undefined,
+    };
     const stealth = StealthScripts2025 as unknown as StealthStaticHarness;
 
     const originals = {
@@ -237,7 +242,7 @@ describe('jshook tools handlers', () => {
       evaluate: runtime.pageController.evaluate,
       getActivePage: runtime.collector.getActivePage,
       getStatus: runtime.collector.getStatus,
-      getBrowser: runtime.browserManager.getBrowser,
+      getConnectedBrowser: runtime.browserManager.getConnectedBrowser,
       injectAll: stealth.injectAll,
       getPresets: stealth.getPresets,
     };
@@ -1044,7 +1049,9 @@ describe('jshook tools handlers', () => {
         {},
         res,
       );
-      runtime.browserManager.getBrowser = () => ({isConnected: () => false});
+      runtime.browserManager.getConnectedBrowser = () => ({
+        isConnected: () => false,
+      });
       runtime.pageController.getPage = async () => activePage;
       runtime.pageController.evaluate = async () => 2;
       runtime.collector.getStatus = async () => ({
@@ -1063,7 +1070,9 @@ describe('jshook tools handlers', () => {
         .join('\n');
       assert.ok(falseNegativeHealth.includes('"pageReady": true'));
       assert.ok(!falseNegativeHealth.includes('BROWSER_DISCONNECTED'));
-      runtime.browserManager.getBrowser = () => ({isConnected: () => false});
+      runtime.browserManager.getConnectedBrowser = () => ({
+        isConnected: () => false,
+      });
       runtime.collector.getStatus = async () => ({
         running: false,
         pagesCount: 0,
@@ -1193,7 +1202,7 @@ describe('jshook tools handlers', () => {
       runtime.pageController.evaluate = originals.evaluate;
       runtime.collector.getActivePage = originals.getActivePage;
       runtime.collector.getStatus = originals.getStatus;
-      runtime.browserManager.getBrowser = originals.getBrowser;
+      runtime.browserManager.getConnectedBrowser = originals.getConnectedBrowser;
       stealth.injectAll = originals.injectAll;
       stealth.getPresets = originals.getPresets;
     }

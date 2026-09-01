@@ -876,7 +876,7 @@ export const checkBrowserHealth = defineTool({
     cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     const issues: Array<{code: string; message: string}> = [];
-    const browser = runtime.browserManager.getBrowser();
+    const browser = runtime.browserManager?.getConnectedBrowser();
     let connected = Boolean(browser && browser.isConnected());
     try {
       const status = await runtime.collector.getStatus();

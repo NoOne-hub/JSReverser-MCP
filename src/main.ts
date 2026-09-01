@@ -174,7 +174,12 @@ function registerTool(tool: ToolDefinition): void {
       annotations: tool.annotations,
     },
     async (params): Promise<CallToolResult> => {
-      return toolScheduler.execute(tool.annotations.readOnlyHint, async () => {
+      // 2026-09-01：把 CLI --tool-timeout-ms 接进 ToolExecutionScheduler.withTimeout
+      // （此前 execute 不传 options.timeoutMs → 永不超时，挂起的 CDP 工具可永久阻塞
+      // 会话；write 互斥队列还会被后续调用全部堵死）。
+      return toolScheduler.execute(
+        tool.annotations.readOnlyHint,
+        async () => {
         const traceId = createTraceId(tool.name);
         const startedAt = Date.now();
         try {
@@ -248,7 +253,9 @@ function registerTool(tool: ToolDefinition): void {
           });
           throw err;
         }
-      });
+      },
+        {timeoutMs: args.toolTimeoutMs || undefined},
+      );
     },
   );
 }

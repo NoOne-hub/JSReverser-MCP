@@ -25,7 +25,7 @@ import type {
   DependencyGraph,
 } from '../../types/index.js';
 import {logger} from '../../utils/logger.js';
-import type {BrowserModeManager} from '../browser/BrowserModeManager.js';
+import type {BrowserManager} from '../../browser.js';
 
 import {CodeCache} from './CodeCache.js';
 import {CodeCompressor} from './CodeCompressor.js';
@@ -37,7 +37,7 @@ import {
 
 export class CodeCollector {
   private config: PuppeteerConfig;
-  private readonly browserManager: BrowserModeManager;
+  private readonly browserManager: BrowserManager | undefined;
   private browser: Browser | null = null;
   private browserListenerAttached = false;
   private collectedUrls = new Set<string>(); // 防止重复收集
@@ -70,7 +70,7 @@ export class CodeCollector {
   } = {};
   private pageResolver?: () => Page | null | undefined;
 
-  constructor(config: PuppeteerConfig, browserManager: BrowserModeManager) {
+  constructor(config: PuppeteerConfig, browserManager: BrowserManager | undefined) {
     this.config = config;
     this.browserManager = browserManager;
 
@@ -284,15 +284,23 @@ export class CodeCollector {
   }
 
   /**
-   * 初始化浏览器 - 统一由 BrowserModeManager 管理
+   * 初始化浏览器 - 复用主栈 BrowserManager 单例（2026-09-02 双栈合并：
+   * 采集栈不再自启/自连第二浏览器，消除 --isolated 状态分裂）
    */
   async init(): Promise<void> {
     if (this.browser && this.browser.isConnected()) {
       return;
     }
 
-    logger.info('Initializing browser via BrowserModeManager...');
-    this.browser = await this.browserManager.launch();
+    if (!this.browserManager) {
+      throw new Error(
+        'Browser manager not ready: 主浏览器未初始化（MCP 服务需先启动浏览器）。' +
+          '请通过 --browserUrl/--wsEndpoint 连接或 --isolated/--executablePath 启动。',
+      );
+    }
+
+    logger.info('Initializing browser via main BrowserManager...');
+    this.browser = await this.browserManager.ensureBrowser();
 
     if (!this.browser) {
       throw new Error('Browser failed to initialize');
@@ -314,25 +322,19 @@ export class CodeCollector {
     // 🆕 初始化缓存目录
     await this.cache.init();
 
-    logger.success('Browser initialized via BrowserModeManager');
+    logger.success('Browser initialized via main BrowserManager');
   }
 
   /**
-   * 关闭浏览器并清理所有数据
+   * 关闭并清理采集侧状态（不关闭主浏览器——生命周期归主栈 BrowserManager）
    */
   async close(): Promise<void> {
     // 🆕 先清理数据
     await this.clearAllData();
 
-    // 再关闭浏览器
-    if (this.browser) {
-      await this.browserManager.close();
-      this.browser = null;
-      this.browserListenerAttached = false;
-      logger.info(
-        'Browser closed (via BrowserModeManager) and all data cleared',
-      );
-    }
+    this.browser = null;
+    this.browserListenerAttached = false;
+    logger.info('Collector state cleared (main browser kept alive)');
   }
 
   /**
@@ -348,7 +350,7 @@ export class CodeCollector {
       return resolvedPage;
     }
 
-    const managedPage = this.browserManager.getCurrentPage();
+    const managedPage = this.browserManager?.getCurrentPage() ?? null;
     if (managedPage && !managedPage.isClosed()) {
       return managedPage;
     }
@@ -364,6 +366,9 @@ export class CodeCollector {
       }
     }
 
+    if (!this.browserManager) {
+      throw new Error('Browser manager not ready（主浏览器未初始化）');
+    }
     return await this.browserManager.newPage();
   }
 
@@ -375,12 +380,15 @@ export class CodeCollector {
       await this.init();
     }
 
+    if (!this.browserManager) {
+      throw new Error('Browser manager not ready（主浏览器未初始化）');
+    }
     const page = await this.browserManager.newPage();
 
     // 🆕 设置User-Agent（使用配置）
     await page.setUserAgent(this.userAgent);
 
-    // BrowserModeManager已在newPage()时自动注入反检测脚本，无需重复注入
+    // 主栈 BrowserManager.newPage() 已注入反检测脚本，无需重复注入
 
     if (url) {
       await page.goto(url, {
@@ -405,7 +413,7 @@ export class CodeCollector {
     version?: string;
   }> {
     if (!this.browser || !this.browser.isConnected()) {
-      const managedBrowser = this.browserManager.getBrowser();
+      const managedBrowser = this.browserManager?.getConnectedBrowser();
       if (managedBrowser && managedBrowser.isConnected()) {
         this.browser = managedBrowser;
       } else {
@@ -474,6 +482,10 @@ export class CodeCollector {
       throw new Error('Browser not initialized');
     }
 
+    if (!this.browserManager) {
+      throw new Error('Browser manager not ready（主浏览器未初始化）');
+    }
+
     const page = await this.browserManager.newPage();
     // ✅ 修复：不再每次清空，依赖 cleanupCollectedUrls() 自动管理
     // this.collectedUrls.clear(); // 移除
@@ -485,7 +497,7 @@ export class CodeCollector {
       // ✅ 修复：使用配置的 User-Agent，而非硬编码
       await page.setUserAgent(this.userAgent);
 
-      // BrowserModeManager已在newPage()时自动注入反检测脚本，无需重复注入
+      // 主栈 BrowserManager.newPage() 已注入反检测脚本，无需重复注入
 
       // 收集的代码文件（完整收集，不限制总大小）
       const files: CodeFile[] = [];
